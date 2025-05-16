@@ -1,0 +1,181 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36" version="27.0.5">
+  <diagram name="Page-1" id="kOpv9C7k7GLqRb2S2bWd">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="nM4wlvn-YlZF6MSCYJfi-1" value="Program start&lt;div&gt;IANA&lt;/div&gt;&lt;div&gt;IAPD&lt;/div&gt;&lt;div&gt;BOTH&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="360" y="20" width="150" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="nM4wlvn-YlZF6MSCYJfi-2" value="config file&lt;div&gt;multiple IAs&lt;/div&gt;&lt;div&gt;reconfigure accept&lt;/div&gt;&lt;div&gt;rapid commit&lt;/div&gt;&lt;div&gt;ORO&lt;/div&gt;&lt;div&gt;FDQN&lt;/div&gt;&lt;div&gt;etc.&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="110" y="20" width="180" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-1" value="" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" target="nM4wlvn-YlZF6MSCYJfi-1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="290" y="100" as="sourcePoint" />
+            <mxPoint x="340" y="50" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-2" value="create the solicit&lt;div&gt;using all configuration information&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="380" y="230" width="130" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-3" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" target="-y8-M8Guxj5wGNBlvsu7-2">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="440" y="170" as="sourcePoint" />
+            <mxPoint x="490" y="120" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-4" value="transmit&lt;div&gt;it and retransmit it as necessary&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="580" y="200" width="160" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-5" value="" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" target="-y8-M8Guxj5wGNBlvsu7-4">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="510" y="315.04" as="sourcePoint" />
+            <mxPoint x="657.28" y="220.00000000000003" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-6" value="while no advrepsonse" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="520" y="220" width="60" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-7" value="Parse Adv&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;build request&lt;/span&gt;&lt;/div&gt;&lt;div&gt;send request&lt;/div&gt;&lt;div&gt;retransmit as needed&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="570" y="380" width="180" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-9" value="while enabled" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="330" y="190" width="140" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-10" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.453;entryY=0.042;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" target="-y8-M8Guxj5wGNBlvsu7-7">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="650" y="360" as="sourcePoint" />
+            <mxPoint x="700" y="310" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-12" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="570" y="440" as="sourcePoint" />
+            <mxPoint x="430" y="440" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-13" value="parse reply&lt;div&gt;process it in the device lease information file&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="321" y="400" width="110" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-15" value="Variables:&lt;div&gt;enabled: tells whether DHCPv6 is enabled&lt;/div&gt;&lt;div&gt;noResponse: while an advertise has not been received&lt;/div&gt;&lt;div&gt;notRenewed: the device has not been renewed&lt;/div&gt;&lt;div&gt;notRebinded: the device has not rebined&lt;/div&gt;&lt;div&gt;notLeased: The reply has not&amp;nbsp; been answered&lt;/div&gt;&lt;div&gt;notReleased:&amp;nbsp; the release has not been answered&lt;/div&gt;&lt;div&gt;notConfirmed: the confirm has not been ansewered&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="15" y="750" width="320" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-16" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="320" y="460" as="sourcePoint" />
+            <mxPoint x="230" y="460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-17" value="retransmit renew as needed" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="120" y="400" width="110" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-18" value="T1" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="250" y="410" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-19" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="120" y="400" as="sourcePoint" />
+            <mxPoint x="110" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-20" value="retransmit rebind as needed" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="70" y="240" width="105" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-21" value="T2" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="140" y="360" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-22" value="while not renewed" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="250" y="430" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-24" value="while not rebinded" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="190" y="345" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-25" value="" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" target="-y8-M8Guxj5wGNBlvsu7-4">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="570" y="385" as="sourcePoint" />
+            <mxPoint x="620" y="335" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-26" value="noaddr/prefix&lt;div&gt;invalid advertisement&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="520" y="340" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-33" value="" style="endArrow=none;dashed=1;html=1;dashPattern=1 3;strokeWidth=2;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="260" y="590" as="sourcePoint" />
+            <mxPoint x="340" y="500" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-34" value="while not released" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="180" y="520" width="130" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-35" value="" style="endArrow=none;dashed=1;html=1;dashPattern=1 3;strokeWidth=2;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="460" y="600" as="sourcePoint" />
+            <mxPoint x="420" y="500" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-36" value="while not confirmed" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="450" y="560" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-37" value="&lt;div&gt;parse lease file&lt;/div&gt;&lt;div&gt;build release&lt;/div&gt;send release&lt;div&gt;retransmit&lt;/div&gt;&lt;div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="200" y="590" width="110" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-38" value="&lt;div&gt;parse lease file&lt;/div&gt;build confirm&lt;div&gt;send confirm&lt;/div&gt;&lt;div&gt;retransmit&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="420" y="595" width="105" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-40" value="" style="endArrow=classic;html=1;rounded=0;entryX=-0.005;entryY=0.064;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" target="-y8-M8Guxj5wGNBlvsu7-13">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="230" y="400" as="sourcePoint" />
+            <mxPoint x="280" y="350" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-41" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" target="-y8-M8Guxj5wGNBlvsu7-13">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="180" y="290" as="sourcePoint" />
+            <mxPoint x="230" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-43" value="" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="70" y="240" as="sourcePoint" />
+            <mxPoint x="40" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-44" value="lease expires" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="10" y="140" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-45" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.25;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" target="-y8-M8Guxj5wGNBlvsu7-13">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="310" y="590" as="sourcePoint" />
+            <mxPoint x="360" y="540" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-46" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;exitX=0;exitY=0;exitDx=0;exitDy=0;" edge="1" parent="1" source="-y8-M8Guxj5wGNBlvsu7-38" target="-y8-M8Guxj5wGNBlvsu7-13">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="420" y="590" as="sourcePoint" />
+            <mxPoint x="470" y="540" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-48" value="lease file for each interface&lt;div&gt;contains each IA option:&lt;/div&gt;&lt;div&gt;- T1 T2&lt;/div&gt;&lt;div&gt;- IAID&lt;/div&gt;&lt;div&gt;IA option:&lt;/div&gt;&lt;div&gt;- address/prefix&lt;/div&gt;&lt;div&gt;-Valid/pref lifetime&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="630" y="11" width="160" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-52" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.03;entryY=0.613;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" target="-y8-M8Guxj5wGNBlvsu7-48">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="510" y="110" as="sourcePoint" />
+            <mxPoint x="560" y="60" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-53" value="" style="endArrow=classic;html=1;rounded=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=-0.025;exitY=0.348;exitDx=0;exitDy=0;exitPerimeter=0;" edge="1" parent="1" source="-y8-M8Guxj5wGNBlvsu7-54" target="-y8-M8Guxj5wGNBlvsu7-13">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="580" y="580" as="sourcePoint" />
+            <mxPoint x="630" y="530" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-y8-M8Guxj5wGNBlvsu7-54" value="parse the lease file&lt;div&gt;build the decline&lt;/div&gt;&lt;div&gt;send confirm&lt;/div&gt;&lt;div&gt;retransmit&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="600" y="550" width="130" height="130" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
