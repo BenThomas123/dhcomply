@@ -15,7 +15,7 @@ int main (int argc, char* argv[]) {
     
     while (enabled) {
 
-       dhcpv6_message_t firstSol = buildSolicit(config_file);
+       dhcpv6_message_t *firstSol = buildSolicit(config_file);
        int sockfd = socket(AF_INET6, SOCK_DGRAM, 0);
        sendSolicit(firstSol, sockfd);
        
@@ -23,7 +23,7 @@ int main (int argc, char* argv[]) {
        while (waiting_for_adv && i < 13) {
             uint16_t retrans_time = rand() % (upper_solicit[i] - lower_solicit[i]);
             sleep(retrans_time);
-            firstSol.option_list->elapsed_time_t.elapsed_time_value += retrans_time;
+            firstSol->option_list->elapsed_time_t.elapsed_time_value += retrans_time;
             sendSolicit(firstSol, sockfd);
             i++;
        }

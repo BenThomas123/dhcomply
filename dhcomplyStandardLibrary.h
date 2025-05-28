@@ -18,6 +18,6 @@ typedef unsigned long long uint128_t;
 void valid_file_pointer(FILE *);
 void valid_memory_allocation(void *);
 void valid_socket(int);
-void valid char *substring(const char *, size_t, size_t);
+char *substring(const char *, size_t, size_t);
 char *trim(char *);
 void to_uppercase(char *);

@@ -14,5 +14,6 @@ Reconfigure
 PD exclude
 SOL_MAX_RT
 Stateless
-DNS stuff stateless
 INF_MAX_RT
+
+pd and dns are the most practical for IOT

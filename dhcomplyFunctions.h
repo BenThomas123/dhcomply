@@ -248,7 +248,7 @@ typedef union dhcpv6_option {
         uint128_t ipv6_address;
         uint64_t prefered_lifetime;
         uint64_t valid_lifetime;
-        dhcpv6_option_t *ia_address_options;
+        union dhcpv6_option *ia_address_options;
     } ia_address_t;
     struct ia_na {
         uint32_t iaid;
@@ -303,7 +303,7 @@ typedef union dhcpv6_option {
         uint64_t prefered_lifetime;
         uint64_t valid_lifetime;
         uint8_t prefix_length;
-        dhcpv6_option_t *ia_prefix_options;
+        union dhcpv6_option *ia_prefix_options;
     } ia_prefix_t;
     struct ia_pd {
         uint32_t iaid;
@@ -318,7 +318,7 @@ typedef union dhcpv6_option {
         struct ia_address *dns_servers;
     } dns_recursive_name_server_t;
     struct domain_search_list {
-        char *search_list[];
+        char *search_list;
     } domain_search_list_t;
     struct SOL_MAX_RT {
         uint32_t SOL_MAX_RT_value;
@@ -375,3 +375,4 @@ int sendRelease(dhcpv6_message_t *message, int sockfd);
 dhcpv6_message_t *buildInformationRequest(config_t *config);
 int sendInformationRequest(dhcpv6_message_t *message, int sockfd);
 
+config_t *read_config_file(char *);

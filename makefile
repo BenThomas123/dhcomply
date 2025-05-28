@@ -1,29 +1,24 @@
-# Compiler
 CC = gcc
-
-# Compiler flags
-CFLAGS = -Wall -Wextra -std=c11
+CFLAGS = -Wall -Wextra -std=c99 -g
 
 # Source files
-SRC = dhcomply.c dhcomplyFunctions.c dhcomplyStandardLibrary.c
+SRCS = dhcomplyMain.c dhcomplyFunctions.c dhcomplyStandardLibrary.c
 
-# Object files (same names, .o extension)
-OBJ = $(SRC:.c=.o)
+# Object files
+OBJS = $(SRCS:.c=.o)
 
 # Output executable
-OUT = dhcomply
+TARGET = dhcomply
 
-# Default target
-all: $(OUT)
+all: $(TARGET)
 
-# Link the object files to create executable
-$(OUT): $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o $(OUT)
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
 
-# Compile .c to .o
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Clean build artifacts
 clean:
-	rm -f $(OBJ) $(OUT)
+	rm -f $(OBJS) $(TARGET)
+
+.PHONY: all clean
