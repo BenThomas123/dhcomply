@@ -98,7 +98,7 @@ dhcpv6_message_t *buildSolicit(config_t *config) {
     dhcpv6_option_t *elapsed = &msg->option_list[index++];
     elapsed->option_code = ELAPSED_TIME_OPTION_CODE;
     elapsed->option_length = sizeof(uint16_t);
-    elapsed->elapsed_time_t.elapsed_time_value = 0;
+    elapsed->elapsed_time_t.elapsed_time_value = 0; 
 
     if (config->oro_list_length > 0) {
         dhcpv6_option_t *oro = &msg->option_list[index++];
