@@ -1,6 +1,6 @@
 #include "dhcomplyStandardLibrary.h"
 
-uint32_t lower_solicit[] = {
+const uint32_t lower_solicit[] = {
     1000,
     1900,
     3610,
@@ -17,7 +17,7 @@ uint32_t lower_solicit[] = {
     3240000
 };
 
-uint32_t upper_solicit[] = {
+const uint32_t upper_solicit[] = {
     1100,
     2310,
     4850,
@@ -34,7 +34,7 @@ uint32_t upper_solicit[] = {
     3960000
 };
 
-uint32_t lower_request[] = {
+const uint32_t lower_request[] = {
     900,
     1710,
     3250,
@@ -47,7 +47,7 @@ uint32_t lower_request[] = {
     27000
 };
 
-uint32_t upper_request[] = {
+const uint32_t upper_request[] = {
     1100,
     2310,
     4850,
@@ -60,7 +60,7 @@ uint32_t upper_request[] = {
     33000
 };
 
-uint32_t renew_lower[] = {
+const uint32_t renew_lower[] = {
     9000,
     17100,
     32490,
@@ -73,7 +73,7 @@ uint32_t renew_lower[] = {
     540000
 };
 
-uint32_t renew_upper[] = {
+const uint32_t renew_upper[] = {
     11000,
     23100,
     48510,
@@ -86,7 +86,7 @@ uint32_t renew_upper[] = {
     660000
 };
 
-uint32_t rebind_lower[] = {
+const uint32_t rebind_lower[] = {
     9000,
     17100,
     32490,
@@ -99,7 +99,7 @@ uint32_t rebind_lower[] = {
     540000
 };
 
-uint32_t rebind_upper[] = {
+const uint32_t rebind_upper[] = {
     11000,
     23100,
     48510,
@@ -112,42 +112,42 @@ uint32_t rebind_upper[] = {
     660000
 };
 
-uint32_t release_lower[] = {
+const uint32_t release_lower[] = {
     900,
     1710,
     3250,
     6170
 };
 
-uint32_t release_upper[] = {
+const uint32_t release_upper[] = {
     1100,
     2310,
     4850,
     10190
 };
 
-uint32_t confirm_lower[] = {
+const uint32_t confirm_lower[] = {
     900,
     1710,
     3250,
     3600
 };
 
-uint32_t confirm_upper[] = {
+const uint32_t confirm_upper[] = {
     1100,
     2310,
     4400,
     4400
 };
 
-uint32_t decline_lower[] = {
+const uint32_t decline_lower[] = {
     900,
     1710,
     3250,
     6170
 };
 
-uint32_t decline_upper[] = {
+const uint32_t decline_upper[] = {
     1100,
     2310,
     4850,
