@@ -1,5 +1,159 @@
 #include "dhcomplyStandardLibrary.h"
 
+static const uint32_t lower_solicit[] = {
+    1000,
+    1900,
+    3610,
+    6860,
+    13030,
+    24760,
+    47050,
+    89390,
+    169840,
+    322690,
+    613110,
+    1164900,
+    2213310,
+    3240000
+};
+
+static const uint32_t upper_solicit[] = {
+    1100,
+    2310,
+    4850,
+    10190,
+    21390,
+    44930,
+    94340,
+    198120,
+    416050,
+    873710,
+    1834790,
+    3853050,
+    3960000,
+    3960000
+};
+
+static const uint32_t lower_request[] = {
+    900,
+    1710,
+    3250,
+    6170,
+    11730,
+    22280,
+    27000,
+    27000,
+    27000,
+    27000
+};
+
+static const uint32_t upper_request[] = {
+    1100,
+    2310,
+    4850,
+    10190,
+    21390,
+    33000,
+    33000,
+    33000,
+    33000,
+    33000
+};
+
+static const uint32_t renew_lower[] = {
+    9000,
+    17100,
+    32490,
+    61730,
+    117290,
+    222850,
+    423410,
+    540000,
+    540000,
+    540000
+};
+
+static const uint32_t renew_upper[] = {
+    11000,
+    23100,
+    48510,
+    101870,
+    213930,
+    449250,
+    660000,
+    660000,
+    660000,
+    660000
+};
+
+static const uint32_t rebind_lower[] = {
+    9000,
+    17100,
+    32490,
+    61730,
+    117290,
+    222850,
+    423410,
+    540000,
+    540000,
+    540000
+};
+
+static const uint32_t rebind_upper[] = {
+    11000,
+    23100,
+    48510,
+    101870,
+    213930,
+    449250,
+    660000,
+    660000,
+    660000,
+    660000
+};
+
+static const uint32_t release_lower[] = {
+    900,
+    1710,
+    3250,
+    6170
+};
+
+static const uint32_t release_upper[] = {
+    1100,
+    2310,
+    4850,
+    10190
+};
+
+static const uint32_t confirm_lower[] = {
+    900,
+    1710,
+    3250,
+    3600
+};
+
+static const uint32_t confirm_upper[] = {
+    1100,
+    2310,
+    4400,
+    4400
+};
+
+static const uint32_t decline_lower[] = {
+    900,
+    1710,
+    3250,
+    6170
+};
+
+static const uint32_t decline_upper[] = {
+    1100,
+    2310,
+    4850,
+    10190
+};
+
 // message type constants
 /* =========================================== */
 #define SOLICIT_MESSAGE_TYPE               1
@@ -71,13 +225,14 @@
 
 #define CONFIG_FILE_PATH "/etc/dhcomply.conf"
 #define MAX_LINE_LEN 150
+#define MILLISECONDS_IN_SECONDS 1000
 
 #define RECONFIGURE_CONFIG_FILE_LINE_RENEW "send dhcp6.reconfigre-accept, 5"
 #define RECONFIGURE_CONFIG_FILE_LINE_REBIND "send dhcp6.reconfigre-accept, 6"
 #define RECONFIGURE_CONFIG_FILE_LINE_INFO_REQ "send dhcp6.reconfigre-accept, 7"
 #define RAPID_COMMIT_LINE "send dhcp6.rapid-commit"
 #define OPTION_REQUEST_OPTION_LINE "send dhcp6.option-request-option."
-char* ORO[] = {"user-class", "vendor-class", "vendor-opts", "dns-servers", "domain-search-list", "information-refresh-time", "fqdn", "pd-exclude", "sol-max-rt", "inf-max-rt"};
+static const char* ORO[] = {"user-class", "vendor-class", "vendor-opts", "dns-servers", "domain-search-list", "information-refresh-time", "fqdn", "pd-exclude", "sol-max-rt", "inf-max-rt"};
 #define ORO_ARRAY_LENGTH 10
 
 

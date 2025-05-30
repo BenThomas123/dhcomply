@@ -67,7 +67,7 @@ char *substring(const char *str, size_t start, size_t len)
 {
     size_t str_len = strlen(str);
     if (start >= str_len)
-        return strdup("");
+        return "";
 
     if (start + len > str_len)
     {
