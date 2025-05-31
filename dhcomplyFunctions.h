@@ -15,7 +15,7 @@ static const uint32_t lower_solicit[] = {
     1164900,
     2213310,
     3240000
-};
+}; 
 
 static const uint32_t upper_solicit[] = {
     1100,
@@ -234,7 +234,6 @@ static const uint32_t decline_upper[] = {
 #define OPTION_REQUEST_OPTION_LINE "send dhcp6.option-request-option."
 static const char* ORO[] = {"user-class", "vendor-class", "vendor-opts", "dns-servers", "domain-search-list", "information-refresh-time", "fqdn", "pd-exclude", "sol-max-rt", "inf-max-rt"};
 #define ORO_ARRAY_LENGTH 10
-
 
 typedef union dhcpv6_option {
     uint16_t option_code;
