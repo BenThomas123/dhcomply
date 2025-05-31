@@ -203,8 +203,8 @@ static const uint32_t decline_upper[] = {
 
 // port number constants
 /* ============================================ */
-#define DHCP_CLIENT_PORT                  547
-#define DHCP_SEVER_PORT                   546
+#define DHCP_CLIENT_PORT                  546
+#define DHCP_SERVER_PORT                  547
 /*============================================= */
 
 // address constants
