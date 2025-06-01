@@ -201,4 +201,5 @@ dhcpv6_message_t *buildSolicit(config_t *config) {
     }
 
     return msg;
-}
+} 
+
