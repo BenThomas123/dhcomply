@@ -9,42 +9,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-int setup_dhcpv6_socket(const char *iface_name)
-{
-    int sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
-    if (sockfd < 0)
-    {
-        perror("socket");
-        exit(1);
-    }
-
-    struct sockaddr_in6 client_addr = {0};
-    client_addr.sin6_family = AF_INET6;
-    client_addr.sin6_port = htons(DHCP_CLIENT_PORT);
-    client_addr.sin6_addr = in6addr_any;
-
-    if (bind(sockfd, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0)
-    {
-        perror("bind");
-        exit(1);
-    }
-
-    unsigned int ifindex = if_nametoindex(iface_name);
-    if (ifindex == 0)
-    {
-        perror("if_nametoindex");
-        exit(1);
-    }
-
-    if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_MULTICAST_IF, &ifindex, sizeof(ifindex)) < 0)
-    {
-        perror("setsockopt IPV6_MULTICAST_IF");
-        exit(1);
-    }
-
-    return sockfd;
-}
-
 int main(int argc, char *argv[])
 {
     if (argc < 2)

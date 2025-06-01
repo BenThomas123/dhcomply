@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <net/if.h>
 
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;

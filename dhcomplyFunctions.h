@@ -345,34 +345,35 @@ typedef struct config {
 
 // Solicit
 dhcpv6_message_t *buildSolicit(config_t *config);
-int sendSolicit(dhcpv6_message_t *message, int sockfd);
+int sendSolicit(dhcpv6_message_t *, int, const char *);
 
 // Request
-dhcpv6_message_t *buildRequest(config_t *config);
-int sendRequest(dhcpv6_message_t *message, int sockfd);
+dhcpv6_message_t *buildRequest(config_t *);
+int sendRequest(dhcpv6_message_t *, int);
 
 // Renew
-dhcpv6_message_t *buildRenew(config_t *config);
-int sendRenew(dhcpv6_message_t *message, int sockfd);
+dhcpv6_message_t *buildRenew(config_t *);
+int sendRenew(dhcpv6_message_t *, int);
 
 // Rebind
 dhcpv6_message_t *buildRebind(config_t *config);
-int sendRebind(dhcpv6_message_t *message, int sockfd);
+int sendRebind(dhcpv6_message_t *, int);
 
 // Confirm
-dhcpv6_message_t *buildConfirm(config_t *config);
-int sendConfirm(dhcpv6_message_t *message, int sockfd);
+dhcpv6_message_t *buildConfirm(config_t *);
+int sendConfirm(dhcpv6_message_t *, int);
 
 // Decline
-dhcpv6_message_t *buildDecline(config_t *config);
-int sendDecline(dhcpv6_message_t *message, int sockfd);
+dhcpv6_message_t *buildDecline(config_t *);
+int sendDecline(dhcpv6_message_t *, int );
 
 // Release
-dhcpv6_message_t *buildRelease(config_t *config);
-int sendRelease(dhcpv6_message_t *message, int sockfd);
+dhcpv6_message_t *buildRelease(config_t *);
+int sendRelease(dhcpv6_message_t *, int );
 
 // Information-Request
-dhcpv6_message_t *buildInformationRequest(config_t *config);
-int sendInformationRequest(dhcpv6_message_t *message, int sockfd);
+dhcpv6_message_t *buildInformationRequest(config_t *);
+int sendInformationRequest(dhcpv6_message_t *, int);
 
 config_t *read_config_file(char *);
+int setup_dhcpv6_socket(const char *);

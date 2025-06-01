@@ -1,5 +1,37 @@
 #include "dhcomplyFunctions.h"
 
+int setup_dhcpv6_socket(const char *iface_name) {
+    int sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+    if (sockfd < 0) {
+        perror("socket");
+        exit(1);
+    }
+
+    struct sockaddr_in6 addr = {0};
+    addr.sin6_family = AF_INET6;
+    addr.sin6_port = htons(DHCP_CLIENT_PORT);
+    addr.sin6_addr = in6addr_any;
+
+    if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        perror("bind");
+        exit(1);
+    }
+
+    unsigned int ifindex = if_nametoindex(iface_name);
+    if (ifindex == 0) {
+        perror("if_nametoindex");
+        exit(1);
+    }
+
+    if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_MULTICAST_IF, &ifindex, sizeof(ifindex)) < 0) {
+        perror("setsockopt");
+        exit(1);
+    }
+
+    return sockfd;
+}
+
+
 config_t *read_config_file(char *iaString)
 {
     config_t *config_file = malloc(sizeof(config_t));
@@ -71,16 +103,17 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name)
     uint8_t buffer[1500];
     size_t offset = 0;
 
+    // Header
     buffer[offset++] = message->message_type;
     buffer[offset++] = (message->transaction_id >> 16) & 0xFF;
     buffer[offset++] = (message->transaction_id >> 8) & 0xFF;
     buffer[offset++] = message->transaction_id & 0xFF;
 
-    for (size_t i = 0; i < message->option_count; i++) {
-        const dhcpv6_option_t *opt = &message->option_list[i];
-        if (opt->option_code == 0) continue;
+    for (size_t i = 0;; i++) {
+        dhcpv6_option_t *opt = &message->option_list[i];
+        if (opt->option_code == 0 && opt->option_length == 0) break; // end
 
-        if (offset + 4 + opt->option_length >= sizeof(buffer)) return -1;
+        if (offset + 4 + opt->option_length > sizeof(buffer)) return -1;
 
         buffer[offset++] = (opt->option_code >> 8) & 0xFF;
         buffer[offset++] = opt->option_code & 0xFF;
@@ -92,20 +125,30 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name)
                 memcpy(&buffer[offset], &opt->client_id_t.duid, sizeof(uint32_t));
                 offset += sizeof(uint32_t);
                 break;
+
             case ELAPSED_TIME_OPTION_CODE:
                 buffer[offset++] = (opt->elapsed_time_t.elapsed_time_value >> 8) & 0xFF;
                 buffer[offset++] = opt->elapsed_time_t.elapsed_time_value & 0xFF;
                 break;
+
             case ORO_OPTION_CODE:
                 memcpy(&buffer[offset], opt->option_request_t.option_request, opt->option_length);
                 offset += opt->option_length;
                 break;
+
             case IA_NA_OPTION_CODE:
-            case IA_PD_OPTION_CODE:
                 memcpy(&buffer[offset], &opt->ia_na_t.iaid, sizeof(uint32_t) * 3);
                 offset += sizeof(uint32_t) * 3;
                 break;
+
+            case IA_PD_OPTION_CODE:
+                memcpy(&buffer[offset], &opt->ia_pd_t.iaid, sizeof(uint32_t) * 3);
+                offset += sizeof(uint32_t) * 3;
+                break;
+
             default:
+                // Unknown option: just skip content
+                offset += opt->option_length;
                 break;
         }
     }
@@ -114,7 +157,7 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name)
     dest.sin6_family = AF_INET6;
     dest.sin6_port = htons(DHCP_SERVER_PORT);
     inet_pton(AF_INET6, "ff02::1:2", &dest.sin6_addr);
-    dest.sin6_scope_id = if_nametoindex(iface_name); // required for link-local multicast
+    dest.sin6_scope_id = if_nametoindex(iface_name);
 
     ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
     if (sent < 0) {
@@ -127,21 +170,21 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name)
 }
 
 dhcpv6_message_t *buildSolicit(config_t *config) {
+    size_t option_count = 2; // CLIENT_ID + ELAPSED_TIME
+
+    if (config->oro_list_length > 0) option_count++;
+    if (config->rapid_commit) option_count++;
+    if (config->reconfigure) option_count++;
+    if (config->na) option_count++;
+    if (config->pd) option_count++;
+
     dhcpv6_message_t *msg = malloc(sizeof(dhcpv6_message_t));
     valid_memory_allocation(msg);
 
     msg->message_type = SOLICIT_MESSAGE_TYPE;
     msg->transaction_id = rand() & 0xFFFFFF;
 
-    msg->option_count = 2; // CLIENTID + ELAPSED_TIME
-
-    if (config->oro_list_length > 0) msg->option_count++;
-    if (config->rapid_commit) msg->option_count++;
-    if (config->reconfigure) msg->option_count++;
-    if (config->na) msg->option_count++;
-    if (config->pd) msg->option_count++;
-
-    msg->option_list = calloc(msg->option_count, sizeof(dhcpv6_option_t));
+    msg->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
     valid_memory_allocation(msg->option_list);
 
     size_t index = 0;
@@ -149,21 +192,23 @@ dhcpv6_message_t *buildSolicit(config_t *config) {
     // CLIENT_ID
     msg->option_list[index].option_code = CLIENT_ID_OPTION_CODE;
     msg->option_list[index].option_length = sizeof(uint32_t);
-    msg->option_list[index++].client_id_t.duid = rand(); // Simplified DUID
+    msg->option_list[index++].client_id_t.duid = rand();
 
     // ELAPSED_TIME
     msg->option_list[index].option_code = ELAPSED_TIME_OPTION_CODE;
     msg->option_list[index].option_length = sizeof(uint16_t);
     msg->option_list[index++].elapsed_time_t.elapsed_time_value = 0;
 
-    // ORO (Option Request Option)
+    // ORO
     if (config->oro_list_length > 0) {
-        dhcpv6_option_t *oro = &msg->option_list[index++];
-        oro->option_code = ORO_OPTION_CODE;
-        oro->option_length = config->oro_list_length * sizeof(uint16_t);
-        oro->option_request_t.option_request = malloc(oro->option_length);
-        valid_memory_allocation(oro->option_request_t.option_request);
-        memcpy(oro->option_request_t.option_request, config->oro_list, oro->option_length);
+        msg->option_list[index].option_code = ORO_OPTION_CODE;
+        msg->option_list[index].option_length = config->oro_list_length * sizeof(uint16_t);
+        msg->option_list[index].option_request_t.option_request =
+            malloc(msg->option_list[index].option_length);
+        valid_memory_allocation(msg->option_list[index].option_request_t.option_request);
+        memcpy(msg->option_list[index].option_request_t.option_request,
+               config->oro_list, msg->option_list[index].option_length);
+        index++;
     }
 
     // RAPID_COMMIT
@@ -180,26 +225,25 @@ dhcpv6_message_t *buildSolicit(config_t *config) {
 
     // IA_NA
     if (config->na) {
-        dhcpv6_option_t *ia_na = &msg->option_list[index++];
-        ia_na->option_code = IA_NA_OPTION_CODE;
-        ia_na->option_length = sizeof(uint32_t) * 3;
-        ia_na->ia_na_t.iaid = rand();
-        ia_na->ia_na_t.t1 = 0;
-        ia_na->ia_na_t.t2 = 0;
-        ia_na->ia_na_t.addresses = NULL;
+        msg->option_list[index].option_code = IA_NA_OPTION_CODE;
+        msg->option_list[index].option_length = sizeof(uint32_t) * 3;
+        msg->option_list[index].ia_na_t.iaid = rand();
+        msg->option_list[index].ia_na_t.t1 = 0;
+        msg->option_list[index].ia_na_t.t2 = 0;
+        msg->option_list[index].ia_na_t.addresses = NULL;
+        index++;
     }
 
     // IA_PD
     if (config->pd) {
-        dhcpv6_option_t *ia_pd = &msg->option_list[index++];
-        ia_pd->option_code = IA_PD_OPTION_CODE;
-        ia_pd->option_length = sizeof(uint32_t) * 3;
-        ia_pd->ia_pd_t.iaid = rand();
-        ia_pd->ia_pd_t.t1 = 0;
-        ia_pd->ia_pd_t.t2 = 0;
-        ia_pd->ia_pd_t.prefixes = NULL;
+        msg->option_list[index].option_code = IA_PD_OPTION_CODE;
+        msg->option_list[index].option_length = sizeof(uint32_t) * 3;
+        msg->option_list[index].ia_pd_t.iaid = rand();
+        msg->option_list[index].ia_pd_t.t1 = 0;
+        msg->option_list[index].ia_pd_t.t2 = 0;
+        msg->option_list[index].ia_pd_t.prefixes = NULL;
+        index++;
     }
 
     return msg;
-} 
-
+}
