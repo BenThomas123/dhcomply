@@ -232,7 +232,7 @@ dhcpv6_message_t *buildSolicit(config_t *config) {
         msg->option_list[index].ia_na_t.t2 = 0;
         msg->option_list[index].ia_na_t.addresses = NULL;
         index++;
-    }
+    } 
 
     // IA_PD
     if (config->pd) {
