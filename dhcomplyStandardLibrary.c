@@ -26,18 +26,8 @@ void valid_socket(int sockfd) {
     }
 }
 
-int bind_dhcpv6_client_socket(int sockfd) {
-    struct sockaddr_in6 client_addr = {0};
-    client_addr.sin6_family = AF_INET6;
-    client_addr.sin6_port = htons(546);  // DHCP client port
-    client_addr.sin6_addr = in6addr_any; // all local interfaces
-
-    if (bind(sockfd, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
-        perror("Unable to bind");
-        exit(-1);
-    }
-
-    return 0;
+void randomize () {
+    srand(time(NULL));
 }
 
 // string library add ons

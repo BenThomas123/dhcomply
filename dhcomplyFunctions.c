@@ -64,7 +64,7 @@ config_t *read_config_file(char *iaString)
     return config_file;
 }
 
-int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name)
+int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, uint16_t elapsed_time)
 {
     if (!message || sockfd < 0) return -1;
 
@@ -77,29 +77,32 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name)
     buffer[offset++] = (message->transaction_id >> 8) & 0xFF;
     buffer[offset++] = message->transaction_id & 0xFF;
 
-    for (size_t i = 0; i < 1; i++) {
-        dhcpv6_option_t *opt = &message->option_list[1];
+    buffer[offset++] = 0;
+    buffer[offset++] = 8;
+    buffer[offset++] = 0;
+    buffer[offset++] = 2;
+
+    buffer[offset++] = (elapsed_time >> 8) & 0xFF;
+    buffer[offset++] = (elapsed_time) & 0xFF;
+
+    /*for (size_t i = 0; ; i++) {
+        dhcpv6_option_t *opt = &message->option_list[i];
         if (opt->option_code == 0 && opt->option_length == 0) break; // end
 
         if (offset + 4 + opt->option_length > sizeof(buffer)) return -1;
 
-        buffer[offset++] = 0;
-        buffer[offset++] = 8;
-        buffer[offset++] = 0;
-        buffer[offset++] = 2;
-
         switch (opt->option_code) {
-            /*case CLIENT_ID_OPTION_CODE:
+            case CLIENT_ID_OPTION_CODE:
                 memcpy(&buffer[offset], &opt->client_id_t.duid, sizeof(uint32_t));
                 offset += sizeof(uint32_t);
-                break;*/
+                break;
 
             case ELAPSED_TIME_OPTION_CODE:
                 buffer[offset++] = (opt->elapsed_time_t.elapsed_time_value >> 8) & 0xFF;
                 buffer[offset++] = opt->elapsed_time_t.elapsed_time_value & 0xFF;
                 break;
 
-            /*case ORO_OPTION_CODE:
+            case ORO_OPTION_CODE:
                 memcpy(&buffer[offset], opt->option_request_t.option_request, opt->option_length);
                 offset += opt->option_length;
                 break;
@@ -112,14 +115,14 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name)
             case IA_PD_OPTION_CODE:
                 memcpy(&buffer[offset], &opt->ia_pd_t.iaid, sizeof(uint32_t) * 3);
                 offset += sizeof(uint32_t) * 3;
-                break;*/
+                break;
 
             default:
                 // Unknown option: just skip content
                 offset += opt->option_length;
                 break;
         }
-    }
+    }*/
 
     struct sockaddr_in6 src = {0};
     src.sin6_family = AF_INET6;
@@ -167,6 +170,7 @@ dhcpv6_message_t *buildSolicit(config_t *config) {
     msg->option_list[index].option_code = CLIENT_ID_OPTION_CODE;
     msg->option_list[index].option_length = 4;
     msg->option_list[index].client_id_t.duid = rand();
+    index++;
 
     // ELAPSED_TIME
     msg->option_list[index].option_code = ELAPSED_TIME_OPTION_CODE;

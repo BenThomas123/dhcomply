@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <net/if.h>
+#include <time.h>
 
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
@@ -19,6 +20,7 @@ typedef unsigned long long uint128_t;
 void valid_file_pointer(FILE *);
 void valid_memory_allocation(void *);
 void valid_socket(int);
+void randomize();
 char *substring(const char *, size_t, size_t);
 char *trim(char *);
 void to_uppercase(char *);
