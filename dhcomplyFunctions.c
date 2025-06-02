@@ -77,6 +77,16 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     buffer[offset++] = (message->transaction_id >> 8) & 0xFF;
     buffer[offset++] = message->transaction_id & 0xFF;
 
+    buffer[offset++] = (message->option_list[0].option_code >> 8) & 0xFF;
+    buffer[offset++] =  message->option_list[0].option_code & 0xFF;
+
+    buffer[offset++] = (message->option_list[0].option_length >> 8) & 0xFF;
+    buffer[offset++] =  message->option_list[0].option_length & 0xFF;
+
+    buffer[offset++] = (message->option_list[0].client_id_t.duid >> 16) & 0xFF;
+    buffer[offset++] = (message->option_list[0].client_id_t.duid >> 8) & 0xFF;
+    buffer[offset++] =  message->option_list[0].client_id_t.duid & 0xFF;
+
     buffer[offset++] = 0;
     buffer[offset++] = 8;
     buffer[offset++] = 0;
@@ -146,7 +156,7 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     return 0;
 }
 
-dhcpv6_message_t *buildSolicit(config_t *config) {
+dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     size_t option_count = 2;
 
     if (config->oro_list_length > 0) option_count++;
@@ -166,16 +176,24 @@ dhcpv6_message_t *buildSolicit(config_t *config) {
 
     size_t index = 0;
 
+    duid_ll_t *duid = (duid_ll_t *)malloc(sizeof(duid_ll_t));
+    duid->duid_type = 3;
+    duid->hw_type = 1;
+    uint8_t mac[6];
+    get_mac_address(ifname, mac);
+    duid->mac = mac;
+
     // CLIENT_ID
     msg->option_list[index].option_code = CLIENT_ID_OPTION_CODE;
     msg->option_list[index].option_length = 4;
-    msg->option_list[index].client_id_t.duid = rand();
+    msg->option_list[index].client_id_t.duid = rand() & 0xFFF;
     index++;
 
     // ELAPSED_TIME
     msg->option_list[index].option_code = ELAPSED_TIME_OPTION_CODE;
     msg->option_list[index].option_length = 2;
-    msg->option_list[index++].elapsed_time_t.elapsed_time_value = 0;
+    msg->option_list[index].elapsed_time_t.elapsed_time_value = 0;
+    index++;
 
     // ORO
     if (config->oro_list_length > 0) {
@@ -222,4 +240,13 @@ dhcpv6_message_t *buildSolicit(config_t *config) {
     }
 
     return msg;
+}
+
+int get_mac_address(const char *iface_name, uint8_t mac[6]) {
+    int sock = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (sock < 0) return -1;
+
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    
 }

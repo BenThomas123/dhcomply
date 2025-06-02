@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
