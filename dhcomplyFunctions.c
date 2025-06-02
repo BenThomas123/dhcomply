@@ -243,10 +243,19 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
 }
 
 int get_mac_address(const char *iface_name, uint8_t mac[6]) {
-    int sock = socket(AF_INET6, SOCK_DGRAM, 0);
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) return -1;
 
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
-    
+    strncpy(ifr.ifr_name, iface_name, IFNAMSIZ - 1);
+
+    if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0) {
+        close(sock);
+        return -1;
+    }
+
+    memcpy(mac, ifr.ifr_hwaddr.sa_data, 6);
+    close(sock);
+    return 0;
 }
