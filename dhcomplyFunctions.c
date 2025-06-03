@@ -101,6 +101,23 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     buffer[offset++] = (elapsed_time >> 8) & 0xFF;
     buffer[offset++] = (elapsed_time) & 0xFF;
 
+    buffer[offset++] = (message->option_list[2].option_code >> 8) & 0xFF;
+    buffer[offset++] =  message->option_list[2].option_code & 0xFF;
+
+    buffer[offset++] = (message->option_list[2].option_length >> 8) & 0xFF;
+    buffer[offset++] =  message->option_list[2].option_length & 0xFF;
+
+    buffer[offset++] = (message->option_list[3].option_code >> 8) & 0xFF;
+    buffer[offset++] =  message->option_list[3].option_code & 0xFF;
+    
+    buffer[offset++] = (message->option_list[3].option_length >> 8) & 0xFF;
+    buffer[offset++] =  message->option_list[3].option_length & 0xFF;
+
+    for (int i = 0; ; i++) {
+        buffer[offset++] = (message->option_list[3].option_request_t.option_request[i] >> 8) & 0xFF;
+        buffer[offset++] = message->option_list[3].option_request_t.option_request[i] & 0xFF;
+    }
+
     /*for (size_t i = 0; ; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
         if (opt->option_code == 0 && opt->option_length == 0) break; // end
