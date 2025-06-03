@@ -83,9 +83,15 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     buffer[offset++] = (message->option_list[0].option_length >> 8) & 0xFF;
     buffer[offset++] =  message->option_list[0].option_length & 0xFF;
 
-    buffer[offset++] = (message->option_list[0].client_id_t.duid >> 16) & 0xFF;
-    buffer[offset++] = (message->option_list[0].client_id_t.duid >> 8) & 0xFF;
-    buffer[offset++] =  message->option_list[0].client_id_t.duid & 0xFF;
+    buffer[offset++] = (message->option_list[0].client_id_t.duid.duid_type >> 8) & 0xFF;
+    buffer[offset++] = message->option_list[0].client_id_t.duid.duid_type & 0xFF;
+
+    buffer[offset++] = (message->option_list[0].client_id_t.duid.hw_type >> 8) & 0xFF;
+    buffer[offset++] = message->option_list[0].client_id_t.duid.hw_type & 0xFF;
+
+    for (int i = 0; i < 6; i++) {
+        buffer[offset++] = message->option_list[0].client_id_t.duid.mac[i] & 0xFF;
+    }
 
     buffer[offset++] = 0;
     buffer[offset++] = 8;
@@ -176,17 +182,15 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
 
     size_t index = 0;
 
-    duid_ll_t *duid = (duid_ll_t *)malloc(sizeof(duid_ll_t));
-    duid->duid_type = 3;
-    duid->hw_type = 1;
-    uint8_t mac[6];
-    get_mac_address(ifname, mac);
-    duid->mac = mac;
-
     // CLIENT_ID
     msg->option_list[index].option_code = CLIENT_ID_OPTION_CODE;
-    msg->option_list[index].option_length = 4;
-    msg->option_list[index].client_id_t.duid = rand() & 0xFFF;
+    msg->option_list[index].option_length = 10;
+    msg->option_list[index].client_id_t.duid.hw_type = 1;
+    msg->option_list[index].client_id_t.duid.duid_type = 3;
+    uint8_t *mac = (uint8_t *)calloc(6, sizeof(uint8_t));
+    get_mac_address(ifname, mac);
+    memcpy(msg->option_list[index].client_id_t.duid.mac, mac, 6);
+
     index++;
 
     // ELAPSED_TIME

@@ -235,12 +235,18 @@ static const uint32_t decline_upper[] = {
 static const char* ORO[] = {"user-class", "vendor-class", "vendor-opts", "dns-servers", "domain-search-list", "information-refresh-time", "fqdn", "pd-exclude", "sol-max-rt", "inf-max-rt"};
 #define ORO_ARRAY_LENGTH 10
 
+typedef struct duid_ll {
+    uint16_t duid_type;
+    uint16_t hw_type;
+    uint8_t mac[6];
+} duid_ll_t;
+
 typedef struct {
     uint16_t option_code;
     uint16_t option_length;
     union {
         struct client_id {
-            uint32_t duid;
+            duid_ll_t duid;
         } client_id_t;
         struct server_id {
             uint32_t duid;
@@ -345,12 +351,6 @@ typedef struct config {
     bool pd;
 } config_t;
 
-typedef struct duid_ll {
-    uint16_t duid_type;
-    uint16_t hw_type;
-    uint8_t mac[6];
-} duid_ll_t;
-
 // Solicit
 dhcpv6_message_t *buildSolicit(config_t *, const char *);
 int sendSolicit(dhcpv6_message_t *, int, const char *, uint16_t);
@@ -385,4 +385,4 @@ int sendInformationRequest(dhcpv6_message_t *, int);
 
 config_t *read_config_file(char *);
 int setup_dhcpv6_socket(const char *);
-int get_mac_address(const char *, uint8_t[]);
+int get_mac_address(const char *, uint8_t[6]);

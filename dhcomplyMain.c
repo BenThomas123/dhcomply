@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
     config_t *config_file = read_config_file(argv[1]);
     int sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 
-    dhcpv6_message_t *firstSol = buildSolicit(config_file);
+    dhcpv6_message_t *firstSol = buildSolicit(config_file, "enp0s3");
     sendSolicit(firstSol, sockfd, "enp0s3", 0);
 
     uint8_t i = 0;
