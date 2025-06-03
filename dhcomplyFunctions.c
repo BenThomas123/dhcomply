@@ -16,12 +16,7 @@ config_t *read_config_file(char *iaString)
     valid_file_pointer(cfp);
 
     char buffer[MAX_LINE_LEN];
-    const uint16_t oro_codes[ORO_ARRAY_LENGTH] = {
-        USER_CLASS_OPTION_CODE, VENDOR_CLASS_OPTION_CODE, VENDOR_OPTS_OPTION_CODE,
-        DNS_SERVERS_OPTION_CODE, DOMAIN_SEARCH_LIST_OPTION_CODE,
-        INFORMATION_REFRESH_OPTION_CODE, FQDN_OPTION_CODE,
-        PD_EXCLUDE_OPTION_CODE, SOL_MAX_RT_OPTION_CODE
-    };
+    config_file->oro_list = (uint8_t *)calloc(10, sizeof(uint8_t));
 
     while (fgets(buffer, sizeof(buffer), cfp)) {
         trim(buffer);
@@ -34,19 +29,11 @@ config_t *read_config_file(char *iaString)
             config_file->reconfigure = 7;
         else if (!strcmp(RAPID_COMMIT_LINE, buffer))
             config_file->rapid_commit = true;
-        else if (strstr(buffer, OPTION_REQUEST_OPTION_LINE)) {
-            char *option_string = substring(buffer, strlen(OPTION_REQUEST_OPTION_LINE), strlen(buffer));
-            for (int option = 0; option < ORO_ARRAY_LENGTH; option++) {
-                char expected_line[256];
-                snprintf(expected_line, sizeof(expected_line), "%s%s", OPTION_REQUEST_OPTION_LINE, ORO[option]);
-                if (!strcmp(option_string, ORO[option]) && !strcmp(expected_line, buffer)) {
-                    config_file->oro_list = realloc(config_file->oro_list, (config_file->oro_list_length + 1) * sizeof(uint16_t));
-                    valid_memory_allocation(config_file->oro_list);
-                    config_file->oro_list[config_file->oro_list_length++] = oro_codes[option];
-                    break;
-                }
+
+        for (int i = 0; i < ORO_ARRAY_LENGTH; i++) {
+            if (!strcmp(buffer, ORO[i])) {
+                config_file->oro_list[config_file->oro_list_length++] = ORO_code[i];
             }
-            free(option_string);
         }
     }
 
@@ -100,6 +87,16 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
     buffer[offset++] = (elapsed_time >> 8) & 0xFF;
     buffer[offset++] = (elapsed_time) & 0xFF;
+
+    buffer[offset++] = (message->option_list[2].option_code >> 8) & 0xFF;
+    buffer[offset++] =  message->option_list[2].option_code & 0xFF;
+
+    buffer[offset++] = (message->option_list[2].option_length >> 8) & 0xFF;
+    buffer[offset++] =  message->option_list[2].option_length & 0xFF;
+
+    for (int i = 0; message->option_list[2].option_length / 2; i++) {
+        fprintf(stderr, "%d\n", message->option_list[2].option_request_t.option_request[i]);        
+    }
 
     /*for (size_t i = 0; ; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
@@ -203,12 +200,9 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     if (config->oro_list_length > 0) {
         msg->option_list[index].option_code = ORO_OPTION_CODE;
         msg->option_list[index].option_length = config->oro_list_length * sizeof(uint16_t);
-        msg->option_list[index].option_request_t.option_request =
-            malloc(msg->option_list[index].option_length);
+        msg->option_list[index].option_request_t.option_request = (uint8_t *)malloc(msg->option_list[index].option_length);
         valid_memory_allocation(msg->option_list[index].option_request_t.option_request);
-        memcpy(msg->option_list[index].option_request_t.option_request,
-               config->oro_list, msg->option_list[index].option_length);
-        index++;
+        memcpy(msg->option_list[index].option_request_t.option_request, config->oro_list, config->oro_list_length);
     }
 
     // RAPID_COMMIT
