@@ -233,6 +233,7 @@ static const uint32_t decline_upper[] = {
 #define RAPID_COMMIT_LINE "send dhcp6.rapid-commit"
 #define OPTION_REQUEST_OPTION_LINE "send dhcp6.option-request-option."
 static const char* ORO[] = {"user-class", "vendor-class", "vendor-opts", "dns-servers", "domain-search-list", "information-refresh-time", "fqdn", "pd-exclude", "sol-max-rt", "inf-max-rt"};
+static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 39, 67, 82, 83}; 
 #define ORO_ARRAY_LENGTH 10
 
 typedef struct duid_ll {
@@ -264,7 +265,7 @@ typedef struct {
             struct ia_address *addresses;
         } ia_na_t;
         struct option_request {
-            uint16_t *option_request;
+            uint8_t *option_request;
         } option_request_t;
         struct preference {
             uint8_t preference_value;
