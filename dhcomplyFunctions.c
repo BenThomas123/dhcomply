@@ -94,9 +94,19 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     buffer[offset++] = (message->option_list[2].option_length >> 8) & 0xFF;
     buffer[offset++] =  message->option_list[2].option_length & 0xFF;
 
-    for (int i = 0; message->option_list[2].option_length / 2; i++) {
-        fprintf(stderr, "%d\n", message->option_list[2].option_request_t.option_request[i]);        
+    // Ensure ORO is present and valid
+    if (message->option_list[2].option_code == ORO_OPTION_CODE &&
+        message->option_list[2].option_request_t.option_request != NULL) {
+
+        int count = message->option_list[2].option_length / 2;
+        for (int i = 0; i < count; i++) {
+            fprintf(stderr, "%d\n", message->option_list[2].option_request_t.option_request[i]);
+        }
+
+    } else {
+        fprintf(stderr, "ORO option missing or malformed.\n");
     }
+
 
     /*for (size_t i = 0; ; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
