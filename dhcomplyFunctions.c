@@ -80,10 +80,11 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
         buffer[offset++] = message->option_list[0].client_id_t.duid.mac[i] & 0xFF;
     }
 
-    buffer[offset++] = 0;
-    buffer[offset++] = 8;
-    buffer[offset++] = 0;
-    buffer[offset++] = 2;
+    buffer[offset++] = (message->option_list[1].option_code >> 8) & 0xFF;
+    buffer[offset++] =  message->option_list[1].option_code & 0xFF;
+
+    buffer[offset++] = (message->option_list[1].option_length >> 8) & 0xFF;
+    buffer[offset++] =  message->option_list[1].option_length & 0xFF;
 
     buffer[offset++] = (elapsed_time >> 8) & 0xFF;
     buffer[offset++] = (elapsed_time) & 0xFF;
@@ -100,12 +101,11 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
         int count = message->option_list[2].option_length / 2;
         for (int i = 0; i < count; i++) {
-            fprintf(stderr, "%d\n", message->option_list[2].option_request_t.option_request[i]);
+            buffer[offset++] = (message->option_list[2].option_request_t.option_request[i] >> 8) & 0xff;
+            buffer[offset++] = message->option_list[2].option_request_t.option_request[i] & 0xff;
         }
 
-    } else {
-        fprintf(stderr, "ORO option missing or malformed.\n");
-    }
+    }    
 
 
     /*for (size_t i = 0; ; i++) {
@@ -209,10 +209,11 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     // ORO
     if (config->oro_list_length > 0) {
         msg->option_list[index].option_code = ORO_OPTION_CODE;
-        msg->option_list[index].option_length = config->oro_list_length * sizeof(uint16_t);
+        msg->option_list[index].option_length = config->oro_list_length * 2;
         msg->option_list[index].option_request_t.option_request = (uint8_t *)malloc(msg->option_list[index].option_length);
         valid_memory_allocation(msg->option_list[index].option_request_t.option_request);
         memcpy(msg->option_list[index].option_request_t.option_request, config->oro_list, config->oro_list_length);
+        index++;
     }
 
     // RAPID_COMMIT
