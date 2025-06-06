@@ -105,8 +105,19 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
             buffer[offset++] = message->option_list[2].option_request_t.option_request[i] & ONE_BYTE_MASK;
         }
 
-    }    
+    }
+    
+    buffer[offset++] = (message->option_list[3].option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] =  message->option_list[3].option_code & ONE_BYTE_MASK;
 
+    buffer[offset++] = (message->option_list[3].option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] =  message->option_list[3].option_length & ONE_BYTE_MASK;
+
+    buffer[offset++] = (message->option_list[4].option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] =  message->option_list[4].option_code & ONE_BYTE_MASK;
+
+    buffer[offset++] = (message->option_list[4].option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] =  message->option_list[4].option_length & ONE_BYTE_MASK;
 
     /*for (size_t i = 0; ; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
