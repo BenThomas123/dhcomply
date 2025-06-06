@@ -54,9 +54,9 @@ config_t *read_config_file(char *iaString)
 
 int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, uint16_t elapsed_time)
 {
-    if (!message || sockfd < 0) return -1;
+    if (!message || sockfd < 0) exit(-1);
 
-    uint8_t buffer[9500];
+    uint8_t buffer[MAX_PACKET_SIZE];
     size_t offset = 0;
 
     // Header
@@ -77,9 +77,8 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     buffer[offset++] = (message->option_list[0].client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
     buffer[offset++] = message->option_list[0].client_id_t.duid.hw_type & ONE_BYTE_MASK;
 
-    for (int i = 0; i < MAC_ADDRESS_LENGTH; i++) {
+    for (int i = 0; i < MAC_ADDRESS_LENGTH; i++)
         buffer[offset++] = message->option_list[0].client_id_t.duid.mac[i] & ONE_BYTE_MASK;
-    }
 
     buffer[offset++] = (message->option_list[1].option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
     buffer[offset++] =  message->option_list[1].option_code & ONE_BYTE_MASK;
@@ -163,7 +162,6 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
     valid_socket(sent);
 
-    printf("Sent %zd bytes (Solicit)\n", sent);
     return 0;
 }
 

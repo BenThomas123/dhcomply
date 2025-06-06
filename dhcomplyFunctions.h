@@ -1,5 +1,13 @@
 #include "dhcomplyStandardLibrary.h"
 
+#define SOLICIT_RETRANS_COUNT 14
+#define REQUEST_RETRANS_COUNT 10
+#define RENEW_RETRANS_COUNT   10
+#define REBIND_RETRANS_COUNT  10
+#define RELEASE_RETRANS_COUNT  4
+#define CONFIRM_RETRANS_COUNT  4
+#define DECLINE_RETRANS_COUNT  4
+
 static const uint32_t lower_solicit[] = {
     1000,
     1900,
@@ -226,6 +234,7 @@ static const uint32_t decline_upper[] = {
 #define CONFIG_FILE_PATH "/etc/dhcomply.conf"
 #define MAX_LINE_LEN 150
 #define MILLISECONDS_IN_SECONDS 1000
+#define MAX_PACKET_SIZE 1500
 
 #define RECONFIGURE_CONFIG_FILE_LINE_RENEW "send dhcp6.reconfigre-accept, 5"
 #define RECONFIGURE_CONFIG_FILE_LINE_REBIND "send dhcp6.reconfigre-accept, 6"
