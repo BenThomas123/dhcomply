@@ -227,13 +227,15 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     // RAPID_COMMIT
     if (config->rapid_commit) {
         msg->option_list[index].option_code = RAPID_COMMIT_OPTION_CODE;
-        msg->option_list[index++].option_length = 0;
+        msg->option_list[index].option_length = 0;
+        index++;
     }
 
     // RECONF_ACCEPT
     if (config->reconfigure) {
         msg->option_list[index].option_code = RECONF_ACCEPT_OPTION_CODE;
-        msg->option_list[index++].option_length = 0;
+        msg->option_list[index].option_length = 0;
+        index++;
     }
 
     // IA_NA
