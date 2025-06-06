@@ -235,6 +235,17 @@ static const uint32_t decline_upper[] = {
 static const char* ORO[] = {"user-class", "vendor-class", "vendor-opts", "dns-servers", "domain-search-list", "information-refresh-time", "fqdn", "pd-exclude", "sol-max-rt", "inf-max-rt"};
 static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 39, 67, 82, 83}; 
 #define ORO_ARRAY_LENGTH 10
+#define MAC_ADDRESS_LENGTH 6
+
+#define ONE_BYTE_SHIFT 8
+#define TWO_BYTE_SHIFT 16
+#define THREE_BYTE_SHIFT 24
+#define FOUR_BYTE_SHIFT 32
+
+#define ONE_BYTE_MASK 0xFF
+#define TWO_BYTE_MASK 0xFFFF
+#define THREE_BYTE_MASK 0xFFFFFF
+#define FOUR_BYTE_MASK 0xFFFFFFFF
 
 typedef struct duid_ll {
     uint16_t duid_type;

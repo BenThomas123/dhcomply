@@ -17,6 +17,7 @@ config_t *read_config_file(char *iaString)
 
     char buffer[MAX_LINE_LEN];
     config_file->oro_list = (uint8_t *)calloc(10, sizeof(uint8_t));
+    valid_memory_allocation(config_file->oro_list);
 
     while (fgets(buffer, sizeof(buffer), cfp)) {
         trim(buffer);
@@ -60,40 +61,40 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
     // Header
     buffer[offset++] = message->message_type;
-    buffer[offset++] = (message->transaction_id >> 16) & 0xFF;
-    buffer[offset++] = (message->transaction_id >> 8) & 0xFF;
-    buffer[offset++] = message->transaction_id & 0xFF;
+    buffer[offset++] = (message->transaction_id >> TWO_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] = (message->transaction_id >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] = message->transaction_id & ONE_BYTE_MASK;
 
-    buffer[offset++] = (message->option_list[0].option_code >> 8) & 0xFF;
-    buffer[offset++] =  message->option_list[0].option_code & 0xFF;
+    buffer[offset++] = (message->option_list[0].option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] =  message->option_list[0].option_code & ONE_BYTE_MASK;
 
-    buffer[offset++] = (message->option_list[0].option_length >> 8) & 0xFF;
-    buffer[offset++] =  message->option_list[0].option_length & 0xFF;
+    buffer[offset++] = (message->option_list[0].option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] =  message->option_list[0].option_length & ONE_BYTE_MASK;
 
-    buffer[offset++] = (message->option_list[0].client_id_t.duid.duid_type >> 8) & 0xFF;
-    buffer[offset++] = message->option_list[0].client_id_t.duid.duid_type & 0xFF;
+    buffer[offset++] = (message->option_list[0].client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] = message->option_list[0].client_id_t.duid.duid_type & ONE_BYTE_MASK;
 
-    buffer[offset++] = (message->option_list[0].client_id_t.duid.hw_type >> 8) & 0xFF;
-    buffer[offset++] = message->option_list[0].client_id_t.duid.hw_type & 0xFF;
+    buffer[offset++] = (message->option_list[0].client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] = message->option_list[0].client_id_t.duid.hw_type & ONE_BYTE_MASK;
 
-    for (int i = 0; i < 6; i++) {
-        buffer[offset++] = message->option_list[0].client_id_t.duid.mac[i] & 0xFF;
+    for (int i = 0; i < MAC_ADDRESS_LENGTH; i++) {
+        buffer[offset++] = message->option_list[0].client_id_t.duid.mac[i] & ONE_BYTE_MASK;
     }
 
-    buffer[offset++] = (message->option_list[1].option_code >> 8) & 0xFF;
-    buffer[offset++] =  message->option_list[1].option_code & 0xFF;
+    buffer[offset++] = (message->option_list[1].option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] =  message->option_list[1].option_code & ONE_BYTE_MASK;
 
-    buffer[offset++] = (message->option_list[1].option_length >> 8) & 0xFF;
-    buffer[offset++] =  message->option_list[1].option_length & 0xFF;
+    buffer[offset++] = (message->option_list[1].option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] =  message->option_list[1].option_length & ONE_BYTE_MASK;
 
-    buffer[offset++] = (elapsed_time >> 8) & 0xFF;
-    buffer[offset++] = (elapsed_time) & 0xFF;
+    buffer[offset++] = (elapsed_time >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] = (elapsed_time) & ONE_BYTE_MASK;
 
-    buffer[offset++] = (message->option_list[2].option_code >> 8) & 0xFF;
-    buffer[offset++] =  message->option_list[2].option_code & 0xFF;
+    buffer[offset++] = (message->option_list[2].option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] =  message->option_list[2].option_code & ONE_BYTE_MASK;
 
-    buffer[offset++] = (message->option_list[2].option_length >> 8) & 0xFF;
-    buffer[offset++] =  message->option_list[2].option_length & 0xFF;
+    buffer[offset++] = (message->option_list[2].option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+    buffer[offset++] =  message->option_list[2].option_length & ONE_BYTE_MASK;
 
     // Ensure ORO is present and valid
     if (message->option_list[2].option_code == ORO_OPTION_CODE &&
@@ -101,8 +102,8 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
         int count = message->option_list[2].option_length / 2;
         for (int i = 0; i < count; i++) {
-            buffer[offset++] = (message->option_list[2].option_request_t.option_request[i] >> 8) & 0xff;
-            buffer[offset++] = message->option_list[2].option_request_t.option_request[i] & 0xff;
+            buffer[offset++] = (message->option_list[2].option_request_t.option_request[i] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+            buffer[offset++] = message->option_list[2].option_request_t.option_request[i] & ONE_BYTE_MASK;
         }
 
     }    
@@ -156,14 +157,11 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     struct sockaddr_in6 dest = {0};
     dest.sin6_family = AF_INET6;
     dest.sin6_port = htons(DHCP_SERVER_PORT);
-    inet_pton(AF_INET6, "ff02::1:2", &dest.sin6_addr);
+    inet_pton(AF_INET6, ALL_DHCP_RELAY_AGENTS_AND_SERVERS, &dest.sin6_addr);
     dest.sin6_scope_id = if_nametoindex(iface_name);
 
     ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    if (sent < 0) {
-        perror("sendto");
-        return -1;
-    }
+    valid_socket(sent);
 
     printf("Sent %zd bytes (Solicit)\n", sent);
     return 0;
@@ -182,7 +180,7 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     valid_memory_allocation(msg);
 
     msg->message_type = SOLICIT_MESSAGE_TYPE;
-    msg->transaction_id = rand() & 0xFFFFFF;
+    msg->transaction_id = rand() & THREE_BYTE_MASK;
 
     msg->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
     valid_memory_allocation(msg->option_list);
@@ -194,9 +192,10 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     msg->option_list[index].option_length = 10;
     msg->option_list[index].client_id_t.duid.hw_type = 1;
     msg->option_list[index].client_id_t.duid.duid_type = 3;
-    uint8_t *mac = (uint8_t *)calloc(6, sizeof(uint8_t));
+    uint8_t *mac = (uint8_t *)calloc(MAC_ADDRESS_LENGTH, sizeof(uint8_t));
+    valid_memory_allocation(mac);
     get_mac_address(ifname, mac);
-    memcpy(msg->option_list[index].client_id_t.duid.mac, mac, 6);
+    memcpy(msg->option_list[index].client_id_t.duid.mac, mac, MAC_ADDRESS_LENGTH);
 
     index++;
 
@@ -253,7 +252,7 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
 
 int get_mac_address(const char *iface_name, uint8_t mac[6]) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) return -1;
+    valid_socket(sock);
 
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
@@ -261,10 +260,10 @@ int get_mac_address(const char *iface_name, uint8_t mac[6]) {
 
     if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0) {
         close(sock);
-        return -1;
+        exit(-1);
     }
 
-    memcpy(mac, ifr.ifr_hwaddr.sa_data, 6);
+    memcpy(mac, ifr.ifr_hwaddr.sa_data, MAC_ADDRESS_LENGTH);
     close(sock);
     return 0;
 }
