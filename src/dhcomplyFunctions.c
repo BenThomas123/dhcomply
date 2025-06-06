@@ -49,8 +49,10 @@ config_t *read_config_file(char *iaString)
         config_file->pd = true;
     } else if (!strcmp(iaString, "P")) {
         config_file->pd = true;
+        config_file->na = false;
     } else if (!strcmp(iaString, "N")) {
         config_file->na = true;
+        config_file->pd = false;
     }
 
     return config_file;
@@ -69,98 +71,69 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     buffer[offset++] = (message->transaction_id >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
     buffer[offset++] = message->transaction_id & ONE_BYTE_MASK;
 
-    buffer[offset++] = (message->option_list[0].option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] =  message->option_list[0].option_code & ONE_BYTE_MASK;
-
-    buffer[offset++] = (message->option_list[0].option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] =  message->option_list[0].option_length & ONE_BYTE_MASK;
-
-    buffer[offset++] = (message->option_list[0].client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] = message->option_list[0].client_id_t.duid.duid_type & ONE_BYTE_MASK;
-
-    buffer[offset++] = (message->option_list[0].client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] = message->option_list[0].client_id_t.duid.hw_type & ONE_BYTE_MASK;
-
-    for (int i = 0; i < MAC_ADDRESS_LENGTH; i++)
-        buffer[offset++] = message->option_list[0].client_id_t.duid.mac[i] & ONE_BYTE_MASK;
-
-    buffer[offset++] = (message->option_list[1].option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] =  message->option_list[1].option_code & ONE_BYTE_MASK;
-
-    buffer[offset++] = (message->option_list[1].option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] =  message->option_list[1].option_length & ONE_BYTE_MASK;
-
-    buffer[offset++] = (elapsed_time >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] = (elapsed_time) & ONE_BYTE_MASK;
-
-    buffer[offset++] = (message->option_list[2].option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] =  message->option_list[2].option_code & ONE_BYTE_MASK;
-
-    buffer[offset++] = (message->option_list[2].option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] =  message->option_list[2].option_length & ONE_BYTE_MASK;
-
-    // Ensure ORO is present and valid
-    if (message->option_list[2].option_code == ORO_OPTION_CODE &&
-        message->option_list[2].option_request_t.option_request != NULL) {
-
-        int count = message->option_list[2].option_length / 2;
-        for (int i = 0; i < count; i++) {
-            buffer[offset++] = (message->option_list[2].option_request_t.option_request[i] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-            buffer[offset++] = message->option_list[2].option_request_t.option_request[i] & ONE_BYTE_MASK;
-        }
-
-    }
-    
-    buffer[offset++] = (message->option_list[3].option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] =  message->option_list[3].option_code & ONE_BYTE_MASK;
-
-    buffer[offset++] = (message->option_list[3].option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] =  message->option_list[3].option_length & ONE_BYTE_MASK;
-
-    buffer[offset++] = (message->option_list[4].option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] =  message->option_list[4].option_code & ONE_BYTE_MASK;
-
-    buffer[offset++] = (message->option_list[4].option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] =  message->option_list[4].option_length & ONE_BYTE_MASK;
-
-    /*for (size_t i = 0; ; i++) {
+    for (size_t i = 0; message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
         if (opt->option_code == 0 && opt->option_length == 0) break; // end
 
-        if (offset + 4 + opt->option_length > sizeof(buffer)) return -1;
+        buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+        buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
+
+        buffer[offset++] = (opt->option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+        buffer[offset++] =  opt->option_length & ONE_BYTE_MASK;
 
         switch (opt->option_code) {
             case CLIENT_ID_OPTION_CODE:
-                memcpy(&buffer[offset], &opt->client_id_t.duid, sizeof(uint32_t));
-                offset += sizeof(uint32_t);
+                buffer[offset++] = (opt->client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->client_id_t.duid.duid_type & ONE_BYTE_MASK;
+
+                buffer[offset++] = (opt->client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->client_id_t.duid.hw_type & ONE_BYTE_MASK;
+
+                for (int i = 0; i < MAC_ADDRESS_LENGTH; i++)
+                    buffer[offset++] = opt->client_id_t.duid.mac[i] & ONE_BYTE_MASK;
+                
                 break;
 
             case ELAPSED_TIME_OPTION_CODE:
-                buffer[offset++] = (opt->elapsed_time_t.elapsed_time_value >> 8) & 0xFF;
-                buffer[offset++] = opt->elapsed_time_t.elapsed_time_value & 0xFF;
+                buffer[offset++] = (elapsed_time >> 8) & 0xFF;
+                buffer[offset++] = elapsed_time & 0xFF;
                 break;
 
             case ORO_OPTION_CODE:
-                memcpy(&buffer[offset], opt->option_request_t.option_request, opt->option_length);
-                offset += opt->option_length;
+                // Ensure ORO is present and valid
+                for (int byte = 0; byte < opt->option_length / 2; byte++) {
+                    buffer[offset++] = (opt->option_request_t.option_request[byte] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                    buffer[offset++] = opt->option_request_t.option_request[byte] & ONE_BYTE_MASK;
+                }
+
                 break;
 
             case IA_NA_OPTION_CODE:
-                memcpy(&buffer[offset], &opt->ia_na_t.iaid, sizeof(uint32_t) * 3);
-                offset += sizeof(uint32_t) * 3;
+                int offset_na_2 = offset + 4;
+                int offset_na_3 = offset + 8;
+                for (int octet = 3; octet > -1; octet--) {
+                    buffer[offset++] = (opt->ia_na_t.iaid >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+                    buffer[offset_na_2++] = (opt->ia_na_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK; 
+                    buffer[offset_na_3++] = (opt->ia_na_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+                }
+                offset = offset_na_3;
                 break;
 
             case IA_PD_OPTION_CODE:
-                memcpy(&buffer[offset], &opt->ia_pd_t.iaid, sizeof(uint32_t) * 3);
-                offset += sizeof(uint32_t) * 3;
+                int offset_pd_2 = offset + 4;
+                int offset_pd_3 = offset + 8;
+                for (int octet = 3; octet > -1; octet--) {
+                    buffer[offset++] = (opt->ia_pd_t.iaid >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+                    buffer[offset_pd_2++] = (opt->ia_pd_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK; 
+                    buffer[offset_pd_3++] = (opt->ia_pd_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+                }
+                offset = offset_pd_3;
                 break;
 
             default:
-                // Unknown option: just skip content
-                offset += opt->option_length;
                 break;
         }
-    }*/
+    }
 
     struct sockaddr_in6 src = {0};
     src.sin6_family = AF_INET6;
@@ -245,8 +218,8 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     // IA_NA
     if (config->na) {
         msg->option_list[index].option_code = IA_NA_OPTION_CODE;
-        msg->option_list[index].option_length = sizeof(uint32_t) * 3;
-        msg->option_list[index].ia_na_t.iaid = rand();
+        msg->option_list[index].option_length = 12;
+        msg->option_list[index].ia_na_t.iaid = rand() & FOUR_BYTE_MASK;
         msg->option_list[index].ia_na_t.t1 = 0;
         msg->option_list[index].ia_na_t.t2 = 0;
         index++;
@@ -255,8 +228,8 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     // IA_PD
     if (config->pd) {
         msg->option_list[index].option_code = IA_PD_OPTION_CODE;
-        msg->option_list[index].option_length = sizeof(uint32_t) * 3;
-        msg->option_list[index].ia_pd_t.iaid = rand();
+        msg->option_list[index].option_length = 12;
+        msg->option_list[index].ia_pd_t.iaid = rand() & FOUR_BYTE_MASK;
         msg->option_list[index].ia_pd_t.t1 = 0;
         msg->option_list[index].ia_pd_t.t2 = 0;
         index++;

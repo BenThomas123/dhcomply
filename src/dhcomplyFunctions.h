@@ -361,6 +361,7 @@ typedef struct dhcpv6_message {
     uint8_t message_type;
     uint32_t transaction_id;
     dhcpv6_option_t *option_list;
+    uint8_t option_count;
 } dhcpv6_message_t;
 
 typedef struct config {
