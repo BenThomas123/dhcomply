@@ -22,14 +22,18 @@ config_t *read_config_file(char *iaString)
     while (fgets(buffer, sizeof(buffer), cfp)) {
         trim(buffer);
 
-        if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_RENEW, buffer))
+        if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_RENEW, buffer)) {
             config_file->reconfigure = 5;
-        else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_REBIND, buffer))
-            config_file->reconfigure = 6;
-        else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_INFO_REQ, buffer))
+        }
+        else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_REBIND, buffer)) {
+            config_file->reconfigure = 6;            
+        }
+        else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_INFO_REQ, buffer)) {
             config_file->reconfigure = 7;
-        else if (!strcmp(RAPID_COMMIT_LINE, buffer))
+        }
+        else if (!strcmp(RAPID_COMMIT_LINE, buffer)) {
             config_file->rapid_commit = true;
+        }
 
         for (int i = 0; i < ORO_ARRAY_LENGTH; i++) {
             if (!strcmp(buffer, ORO[i])) {
