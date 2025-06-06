@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -std=gnu99 -g
 
 # Source files
-SRCS = dhcomplyMain.c dhcomplyFunctions.c dhcomplyStandardLibrary.c
+SRCS = src/dhcomplyMain.c src/dhcomplyFunctions.c src/dhcomplyStandardLibrary.c
 
 # Object files
 OBJS = $(SRCS:.c=.o)
