@@ -1,0 +1,24 @@
+today went really well. I was quite shocked that I was able to get as much done today as I did. 
+Really did not have many difficult bugs today. I am quite excited to see where this project goes
+
+Today, I:
+    - Implemented some more bash scripts to speed up development
+    - Started thinking about testing
+    - Implemented IA options in the solicit
+    - got rapid committ and reconfigure accept added into the solicit
+    - Even more code cleanup
+    - fixed some bugs
+    - confirmed that a kea-server will respond with an advertisement (all be it, it had a noaddr status code)
+
+Tommorow, I plan to:
+    - I really would like to get a readme.md going, better then what I currently have.
+    - elapsed time values I think might not be calculated correctly. need to look into that.
+    - get started on testing for the solicits. Figurre out how testing is going to work for this project
+    - write some unit tests where possible for some of the "standard library functions"
+
+Going forward, I plan to:
+    - cleanup git commit history
+    - continue on the longerterm path of getting the handshake working
+    - continue to improve repo structure
+
+I am glad I got solicits working for this project. Now that it is complete I am going to start testing tommorow. 
