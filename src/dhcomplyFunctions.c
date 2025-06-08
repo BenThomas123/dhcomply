@@ -58,7 +58,7 @@ config_t *read_config_file(char *iaString)
     return config_file;
 }
 
-int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, uint16_t elapsed_time)
+int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, uint32_t elapsed_time)
 {
     if (!message || sockfd < 0) exit(-1);
 

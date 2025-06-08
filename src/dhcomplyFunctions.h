@@ -375,7 +375,7 @@ typedef struct config {
 
 // Solicit
 dhcpv6_message_t *buildSolicit(config_t *, const char *);
-int sendSolicit(dhcpv6_message_t *, int, const char *, uint16_t);
+int sendSolicit(dhcpv6_message_t *, int, const char *, uint32_t);
 
 // Request
 dhcpv6_message_t *buildRequest(config_t *);
