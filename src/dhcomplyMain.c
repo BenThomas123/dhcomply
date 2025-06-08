@@ -20,7 +20,11 @@ int main(int argc, char *argv[])
     {
         uint32_t retrans_time = lower_solicit[retransmission] + (rand() % (upper_solicit[retransmission] - lower_solicit[retransmission]));
         usleep(retrans_time * MILLISECONDS_IN_SECONDS);
-        sendSolicit(firstSol, sockfd, argv[2], retrans_time / 10);
+        if (retrans_time < 65536 * MILLISECONDS_IN_SECONDS) {
+            sendSolicit(firstSol, sockfd, argv[2], retrans_time / 10);
+        } else {
+            sendSolicit(firstSol, sockfd, argv[2], 65536);
+        }
         retransmission++;
     }
 
