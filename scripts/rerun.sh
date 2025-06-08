@@ -6,4 +6,4 @@ interface="$2"
 cd ../src
 make clean
 make
-./dhcomply "$iaString" "$interface"
+sudo ./dhcomply "$iaString" "$interface"
