@@ -1,0 +1,20 @@
+Last two days was definitely harder than the 6th but I think that things are going pretty well now. I am gonna start
+trying to get the client to repsond to advertisement messages.
+
+Today, I:
+    - I got the server repsonding to the client solicit with a valid reply
+    - I tested the solicits with the unit test
+    - I got a "router" set up. (really just a relay agent with radvd)
+    - I got elapsed time working
+
+Tommorow, I plan to:
+    - Work on requests. pretty much all I plan to do probably the next few days.
+
+Going forward, I plan to:
+    - I really would like to get a readme.md going, better then what I currently have. 
+    I kind of what to postpone this until the handshake is complete
+    - cleanup git commit history
+    - continue on the longerterm path of getting the handshake working
+    - continue to improve repo structure
+
+just gotta keep plugging away to get requests messages going.
