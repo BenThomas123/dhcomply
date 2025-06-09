@@ -235,7 +235,128 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
         index++;
     }
 
+    msg->option_count = option_count;
+
     return msg;
+}
+
+uint8_t *check_for_advertise(int sockfd) {
+    fd_set read_fds;
+    struct timeval timeout;
+    FD_ZERO(&read_fds);
+    FD_SET(sockfd, &read_fds);
+
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+
+    int ready = select(sockfd + 1, &read_fds, NULL, NULL, &timeout);
+    if (ready > 0 && FD_ISSET(sockfd, &read_fds)) {
+        uint8_t buffer[1500];
+        ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
+        if (len > 0 && buffer[0] == ADVERTISE_MESSAGE_TYPE) {
+            printf("Received Advertise\n");
+            return buffer;
+        }
+    }
+    return NULL;
+}
+
+bool parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit) {
+
+    dhcpv6_message_t *advertise_message = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
+
+    uint32_t id = 0;
+    uint32_t id = (0 << 24) | (packet[1] << 16) | (packet[2] << 8) | packet[3];
+
+    if (id != solicit) {
+        return false;
+    }
+
+    advertise_message->message_type = ADVERTISE_MESSAGE_TYPE;
+    advertise_message->transaction_id = id;
+    advertise_message->option_count = advertise_message->option_count;
+
+    advertise_message->option_list = (dhcpv6_option_t *)calloc(advertise_message->option_count, sizeof(dhcpv6_option_t));
+
+    int index = 4;
+    int option_index = 0;
+    for (int i = 0; ; i++) {
+
+        advertise_message->option_list[option_index].option_code = packet[index] << 8 | packet[index + 1];
+        advertise_message->option_list[option_index].option_length = packet[index + 2] << 8 | packet[index + 3];
+        switch (option_code) {
+            case IA_NA_OPTION_CODE:
+                for (int i = 0; i <= 4; i++) {
+                    advertise_message->option_list[option_index].ia_na_t.iaid |= packet[index + (4 + i)] << 8;
+                    advertise_message->option_list[option_index].ia_na_t.t1 |= packet[index + (8 + i)] << 8;
+                    advertise_message->option_list[option_index].ia_na_t.t2 |= packet[index + (12 + i)] << 8;
+                }
+                for (int i = 0; i < 16; i++) {
+                    advertise_message->option_list[option_index].ia_na_t.addresses->ipv6_address |= packet[index + (20 + i)] << 8;
+                }
+                for (int i = 0; i < 4; i++) {
+                    advertise_message->option_list[option_index].ia_na_t.addresses->prefered_lifetime |= packet[index + (36 + i)] << 8;
+                    advertise_message->option_list[option_index].ia_na_t.addresses->valid_lifetime |= packet[index + (40 + i)] << 8;
+                }
+                break;
+            case IA_PD_OPTION_CODE:
+                for (int i = 0; i <= 4; i++) {
+                    advertise_message->option_list[option_index].ia_pd_t.iaid |= packet[index + (4 + i)] << 8;
+                    advertise_message->option_list[option_index].ia_pd_t.t1 |= packet[index + (8 + i)] << 8;
+                    advertise_message->option_list[option_index].ia_pd_t.t2 |= packet[index + (12 + i)] << 8;
+                }
+                for (int i = 0; i < 4; i++) {
+                    advertise_message->option_list[option_index].ia_pd_t.prefixes->prefered_lifetime |= packet[index + (20 + i)] << 8;
+                    advertise_message->option_list[option_index].ia_pd_t.prefixes->valid_lifetime |= packet[index + (24 + i)] << 8;
+                    if (i == 0) {
+                        advertise_message->option_list[option_index].ia_pd_t.prefixes->length |= packet[index + 28] << 8;
+                    }
+                }
+                for (int i = 0; i < advertise_message->option_list[option_index].ia_pd_t.prefixes->length / 2; i++) {
+                    advertise_message->option_list[option_index].ia_pd_t.prefixes->ipv6_prefix |= packet[index + (29 + i)] << 8;
+                }
+                break;
+            case RECONF_ACCEPT_OPTION_CODE:
+                break;
+            case DNS_SERVERS_OPTION_CODE:
+                uint16_t length = advertise_message->option_list[option_index].option_length;
+                for (int i = 0; i < length / 16;; i++) {
+                    for (int j = 0; j < 16; j++) {
+                        advertise_message->option_list[option_index].dns_recursive_name_server_t.dns_servers[i] |= packet[index + ((i * 16) + j)] << 8;
+                    }
+                }
+                break;
+            case DOMAIN_SEARCH_LIST_OPTION_CODE:
+                
+                break;
+            default 
+                break;
+        }
+        option_index++;
+        index += (option_length + 4);
+    }
+
+}
+
+uint8_t *check_for_reply(int sockfd) {
+    fd_set read_fds;
+    struct timeval timeout;
+    FD_ZERO(&read_fds);
+    FD_SET(sockfd, &read_fds);
+
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+
+    int ready = select(sockfd + 1, &read_fds, NULL, NULL, &timeout);
+    if (ready > 0 && FD_ISSET(sockfd, &read_fds)) {
+        uint8_t buffer[1500];
+        ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
+        if (len > 0 && buffer[0] == REPLY_MESSAGE_TYPE) {
+            printf("Received Advertise\n");
+            return buffer;
+        }
+    }
+    return NULL;
 }
 
 int get_mac_address(const char *iface_name, uint8_t mac[6]) {

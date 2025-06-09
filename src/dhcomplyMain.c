@@ -17,8 +17,7 @@ int main(int argc, char *argv[])
 
     uint8_t retransmission = 0;
     uint32_t elapse_time = 0;
-    while (retransmission < SOLICIT_RETRANS_COUNT)
-    {
+    while (retransmission < SOLICIT_RETRANS_COUNT) {
         uint32_t retrans_time = lower_solicit[retransmission] + (rand() % (upper_solicit[retransmission] - lower_solicit[retransmission]));
         elapse_time += retrans_time;
         usleep(retrans_time * MILLISECONDS_IN_SECONDS);
@@ -27,7 +26,14 @@ int main(int argc, char *argv[])
         } else {
             sendSolicit(firstSol, sockfd, argv[2], 65535);
         }
+        if (!check_for_advertise(sockfd)) {
+            while (!check_for_reply(sockfd)) {
+                
+            }
+        }
+        if (!check_for_reply(sockfd)) {
 
+        }
         retransmission++;
     }
 

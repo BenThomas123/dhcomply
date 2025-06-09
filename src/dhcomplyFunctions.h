@@ -377,6 +377,10 @@ typedef struct config {
 dhcpv6_message_t *buildSolicit(config_t *, const char *);
 int sendSolicit(dhcpv6_message_t *, int, const char *, uint32_t);
 
+// Advertisement
+uint8_t* check_for_advertise(int);
+bool parseAdvertisement(uint8_t *);
+
 // Request
 dhcpv6_message_t *buildRequest(config_t *);
 int sendRequest(dhcpv6_message_t *, int);
@@ -386,7 +390,7 @@ dhcpv6_message_t *buildRenew(config_t *);
 int sendRenew(dhcpv6_message_t *, int);
 
 // Rebind
-dhcpv6_message_t *buildRebind(config_t *config);
+dhcpv6_message_t *buildRebind(config_t *);
 int sendRebind(dhcpv6_message_t *, int);
 
 // Confirm
