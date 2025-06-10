@@ -359,7 +359,7 @@ bool parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit) {
                     }
                 }
                 break;
-            default 
+            default:
                 break;
         }
         option_index++;
