@@ -259,7 +259,7 @@ static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 39, 67, 82, 83};
 typedef struct duid_ll {
     uint16_t duid_type;
     uint16_t hw_type;
-    uint8_t mac[6];
+    uint8_t *mac;
 } duid_ll_t;
 
 typedef struct {
@@ -411,4 +411,4 @@ int sendInformationRequest(dhcpv6_message_t *, int);
 
 config_t *read_config_file(char *);
 int setup_dhcpv6_socket(const char *);
-int get_mac_address(const char *, uint8_t[6]);
+int get_mac_address(const char *, uint8_t[]);

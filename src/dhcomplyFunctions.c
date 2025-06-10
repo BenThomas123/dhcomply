@@ -285,6 +285,29 @@ bool parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit) {
         advertise_message->option_list[option_index].option_code = packet[index] << 8 | packet[index + 1];
         advertise_message->option_list[option_index].option_length = packet[index + 2] << 8 | packet[index + 3];
         switch (option_code) {
+            case SERVER_ID_OPTION_CODE:
+                uint16_t length = advertise_message->option_list[option_index].option_length;
+                duid_ll_t *duid = (duid_ll_t *)malloc(sizeof(duid_ll_t));
+                duid->duid_type = packet[index + 4] << 8 | packet[index + 5];
+                duid->hw_type = packet[index + 6] << 8 | packet[index + 7];
+                duid->mac = (uint8_t *)calloc(length - 4, sizeof(uint8_t));
+                for (int i = 0; i < length - 4; i++) {
+                    duid->mac[i] = index[i + (index + 8)]
+                }
+
+                break;
+            case CLIENT_ID_OPTION_CODE:
+                uint16_t length = advertise_message->option_list[option_index].option_length;
+                duid_ll_t *duid = (duid_ll_t *)malloc(sizeof(duid_ll_t));
+                duid->duid_type = packet[index + 4] << 8 | packet[index + 5];
+                duid->hw_type = packet[index + 6] << 8 | packet[index + 7];
+                duid->mac = (uint8_t *)calloc(length - 4, sizeof(uint8_t));
+                
+                for (int i = 0; i < length - 4; i++) {
+                    duid->mac[i] = index[i + (index + 8)]
+                }
+
+                break;
             case IA_NA_OPTION_CODE:
                 for (int i = 0; i <= 4; i++) {
                     advertise_message->option_list[option_index].ia_na_t.iaid |= packet[index + (4 + i)] << 8;
@@ -327,7 +350,14 @@ bool parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit) {
                 }
                 break;
             case DOMAIN_SEARCH_LIST_OPTION_CODE:
-                
+                uint16_t length = advertise_message->option_list[option_index].option_length;
+                int ind = 0;
+                for (int i = 0; i < length; i++) {
+                    advertise_message->option_list[option_index].domain_search_list_t.search_list[ind] |= packet[index + ((i * 16) + j)] << 8;
+                    if (packet[(index + 4) + i] == 0) {
+                        ind++;
+                    }
+                }
                 break;
             default 
                 break;
