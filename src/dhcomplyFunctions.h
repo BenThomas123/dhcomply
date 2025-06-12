@@ -270,7 +270,7 @@ typedef struct {
             duid_ll_t duid;
         } client_id_t;
         struct server_id {
-            uint32_t duid;
+            duid_ll_t duid;
         } server_id_t;
         struct ia_address {
             uint128_t ipv6_address;
@@ -378,12 +378,15 @@ dhcpv6_message_t *buildSolicit(config_t *, const char *);
 int sendSolicit(dhcpv6_message_t *, int, const char *, uint32_t);
 
 // Advertisement
-uint8_t* check_for_advertise(int);
-bool parseAdvertisement(uint8_t *);
+bool check_for_advertise(int);
+bool parseAdvertisement(uint8_t *, dhcpv6_message_t *);
 
 // Request
-dhcpv6_message_t *buildRequest(config_t *);
-int sendRequest(dhcpv6_message_t *, int);
+dhcpv6_message_t *buildRequest(dhcpv6_message_t *, config_t *);
+int sendRequest(dhcpv6_message_t *, int , const char *, uint32_t);
+
+// Reply
+bool check_for_reply(int);
 
 // Renew
 dhcpv6_message_t *buildRenew(config_t *);
@@ -411,4 +414,4 @@ int sendInformationRequest(dhcpv6_message_t *, int);
 
 config_t *read_config_file(char *);
 int setup_dhcpv6_socket(const char *);
-int get_mac_address(const char *, uint8_t[]);
+int get_mac_address(const char *, uint8_t[6]);

@@ -11,6 +11,9 @@
 #include <sys/socket.h>
 #include <net/if.h>
 #include <time.h>
+#include <sys/select.h>
+#include <sys/types.h>
+#include <sys/time.h>
 
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;

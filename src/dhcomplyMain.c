@@ -3,7 +3,7 @@
 int main(int argc, char *argv[])
 {
     randomize();
-    if (argc < 3)
+    if (argc < 2)
     {
         exit(-1);
     }
@@ -27,12 +27,6 @@ int main(int argc, char *argv[])
             sendSolicit(firstSol, sockfd, argv[2], 65535);
         }
         if (!check_for_advertise(sockfd)) {
-            while (!check_for_reply(sockfd)) {
-                
-            }
-        }
-        if (!check_for_reply(sockfd)) {
-
         }
         retransmission++;
     }
