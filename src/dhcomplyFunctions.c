@@ -246,16 +246,16 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 {
     if (!message || sockfd < 0) exit(-1);
 
-    uint8_t buffer[9000];
+    uint8_t buffer[MAX_PACKET_SIZE];
     uint8_t offset = 0;
 
     // Header
-    buffer[offset++] = 3;
+    buffer[offset++] = REQUEST_MESSAGE_TYPE;
     buffer[offset++] = (message->transaction_id >> TWO_BYTE_SHIFT) & ONE_BYTE_MASK;
     buffer[offset++] = (message->transaction_id >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
     buffer[offset++] = message->transaction_id & ONE_BYTE_MASK;
 
-    /*for (size_t i = 0; message->option_count; i++) {
+    for (size_t i = 0; message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
         if (opt->option_code == 0 && opt->option_length == 0) break; // end
 
@@ -324,12 +324,14 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                     buffer[offset_pd_3++] = (opt->ia_pd_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                 }
                 offset = offset_pd_3;
+
+
                 break;
 
             default:
                 break;
         }
-    }*/
+    }
     struct sockaddr_in6 dest = {0};
     dest.sin6_family = AF_INET6;
     dest.sin6_port = htons(DHCP_SERVER_PORT);
@@ -338,8 +340,6 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
     ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
     valid_socket(sent);
-
-    printf(stderr, "Request sent");
 
     return 0;
 }
@@ -355,9 +355,9 @@ bool check_for_advertise(int sockfd, uint8_t *packet) {
 
     int ready = select(sockfd + 1, &read_fds, NULL, NULL, &timeout);
     if (ready > 0 && FD_ISSET(sockfd, &read_fds)) {
-        uint8_t buffer[1500];
+        uint8_t buffer[MAX_PACKET_SIZE];
         ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
-        packet = buffer;
+        memcpy(packet, buffer, MAX_PACKET_SIZE);
         if (len > 0 && buffer[0] == ADVERTISE_MESSAGE_TYPE) {
             printf("Received Advertise\n");
             return true;
@@ -372,10 +372,13 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
     dhcpv6_message_t *advertise_message = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
 
     uint32_t id = 0;
-    id = (0 << 24) | (packet[1] << 16) | (packet[2] << 8) | packet[3];
+
+    id = packet[1] << 16;
+    id |= packet[2] << 8;
+    id |= packet[3];
 
     if (id != solicit->transaction_id) {
-        return false;
+        return NULL;
     }
 
     advertise_message->message_type = ADVERTISE_MESSAGE_TYPE;
@@ -386,8 +389,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
 
     int index = 4;
     int option_index = 0;
-    for (int i = 0; ; i++) {
-
+    for (int i = 0; i < advertise_message->option_count; i++) {
         uint16_t option_code = advertise_message->option_list[option_index].option_code = packet[index] << 8 | packet[index + 1];
         uint16_t option_length = advertise_message->option_list[option_index].option_length = packet[index + 2] << 8 | packet[index + 3];
         switch (option_code) {
@@ -413,7 +415,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
 
                 break;
             case IA_NA_OPTION_CODE:
-                for (int i = 0; i <= 4; i++) {
+                /*for (int i = 0; i <= 4; i++) {
                     advertise_message->option_list[option_index].ia_na_t.iaid |= packet[index + (4 + i)] << 8;
                     advertise_message->option_list[option_index].ia_na_t.t1 |= packet[index + (8 + i)] << 8;
                     advertise_message->option_list[option_index].ia_na_t.t2 |= packet[index + (12 + i)] << 8;
@@ -424,7 +426,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
                 for (int i = 0; i < 4; i++) {
                     advertise_message->option_list[option_index].ia_na_t.addresses->prefered_lifetime |= packet[index + (36 + i)] << 8;
                     advertise_message->option_list[option_index].ia_na_t.addresses->valid_lifetime |= packet[index + (40 + i)] << 8;
-                }
+                }*/
                 break;
             case IA_PD_OPTION_CODE:
                 break;
@@ -440,11 +442,13 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
         option_index++;
         index += (option_length + 4);
     }
-    return true;
+
+    advertise_message->option_count = option_index;
+    return advertise_message;
 }
 
 dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *config) {
-   size_t option_count = advertisement->option_count;
+    size_t option_count = advertisement->option_count;
 
    dhcpv6_message_t *request = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
    valid_memory_allocation(request);
@@ -457,17 +461,36 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
 
     size_t index = 0;
 
-    // CLIENT_ID
-    request->option_list[index].option_code = CLIENT_ID_OPTION_CODE;
-    request->option_list[index].option_length = advertisement->option_list[0].option_length;
-    request->option_list[index].client_id_t.duid.hw_type = 1;
-    request->option_list[index].client_id_t.duid.duid_type = 3;
-    request->option_list[index].client_id_t.duid.mac = (uint8_t *)calloc(MAC_ADDRESS_LENGTH, sizeof(uint8_t));
-    uint8_t *mac = (uint8_t *)calloc(MAC_ADDRESS_LENGTH, sizeof(uint8_t));
-    for (int i = 0; i < MAC_ADDRESS_LENGTH; i++) {
-        request->option_list[index].client_id_t.duid.mac[i] = mac[i];
+    for (int i = 0; i < request->option_count; i++) {
+        dhcpv6_option_t *opt = &advertisement->option_list[i];
+        uint16_t option_code = opt->option_code;
+        uint16_t option_length = opt->option_length;
+        switch (opt->option_code) {
+            case CLIENT_ID_OPTION_CODE:
+                request->option_list[index].option_code = CLIENT_ID_OPTION_CODE;
+                request->option_list[index].option_length = advertisement->option_list[0].option_length;
+                request->option_list[index].client_id_t.duid.hw_type = 1;
+                request->option_list[index].client_id_t.duid.duid_type = 3;
+                request->option_list[index].client_id_t.duid.mac = (uint8_t *)calloc(MAC_ADDRESS_LENGTH, sizeof(uint8_t));
+                uint8_t *mac = (uint8_t *)calloc(MAC_ADDRESS_LENGTH, sizeof(uint8_t));
+                for (int i = 0; i < MAC_ADDRESS_LENGTH; i++) {
+                    request->option_list[index].client_id_t.duid.mac[i] = mac[i];
+                }
+                index++;
+                break;
+            case SERVER_ID_OPTION_CODE:
+                duid_ll_t *duid1 = (duid_ll_t *)malloc(sizeof(duid_ll_t));
+                duid1->duid_type = advertisement->option_list[index]
+                duid1->hw_type = packet[index + 6] << 8 | packet[index + 7];
+                duid1->mac = (uint8_t *)calloc(option_length - 4, sizeof(uint8_t));
+                for (int i = 0; i < option_length- 4; i++) {
+                    duid1->mac[i] = packet[i + (index + 8)];
+                }
+                break;
+        }
+
     }
-    index++;
+
 
     // ELAPSED_TIME
     request->option_list[index].option_code = ELAPSED_TIME_OPTION_CODE;

@@ -20,12 +20,6 @@ int main(int argc, char *argv[])
     while (retransmissionSolicit < SOLICIT_RETRANS_COUNT) {
         uint32_t retrans_time = lower_solicit[retransmissionSolicit] + (rand() % (upper_solicit[retransmissionSolicit] - lower_solicit[retransmissionSolicit]));
         elapse_time += retrans_time;
-        usleep(retrans_time * MILLISECONDS_IN_SECONDS);
-        if (retrans_time < 655360) {
-            sendSolicit(firstSol, sockfd, argv[2], elapse_time / 10);
-        } else {
-            sendSolicit(firstSol, sockfd, argv[2], 65535);
-        }
         uint8_t *advertisement_packet = (uint8_t *)calloc(1500, sizeof(uint8_t));
         bool advertisement_check = check_for_advertise(sockfd, advertisement_packet);
         if (advertisement_check) {
@@ -44,6 +38,13 @@ int main(int argc, char *argv[])
                     sendRequest(request, sockfd, argv[2], 65535);
                 }
                 retransmissionRequest++;
+            }
+        } else {
+            usleep(retrans_time * MILLISECONDS_IN_SECONDS);
+            if (retrans_time < 655360) {
+                sendSolicit(firstSol, sockfd, argv[2], elapse_time / 10);
+            } else {
+                sendSolicit(firstSol, sockfd, argv[2], 65535);
             }
         }
         retransmissionSolicit++;
