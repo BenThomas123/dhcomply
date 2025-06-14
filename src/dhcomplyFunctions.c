@@ -246,16 +246,16 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 {
     if (!message || sockfd < 0) exit(-1);
 
-    uint8_t buffer[MAX_PACKET_SIZE];
+    uint8_t buffer[9000];
     uint8_t offset = 0;
 
     // Header
-    buffer[offset++] = message->message_type;
+    buffer[offset++] = 3;
     buffer[offset++] = (message->transaction_id >> TWO_BYTE_SHIFT) & ONE_BYTE_MASK;
     buffer[offset++] = (message->transaction_id >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
     buffer[offset++] = message->transaction_id & ONE_BYTE_MASK;
 
-    for (size_t i = 0; message->option_count; i++) {
+    /*for (size_t i = 0; message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
         if (opt->option_code == 0 && opt->option_length == 0) break; // end
 
@@ -329,7 +329,7 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
             default:
                 break;
         }
-    }
+    }*/
 
     struct sockaddr_in6 src = {0};
     src.sin6_family = AF_INET6;
@@ -346,10 +346,12 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
     valid_socket(sent);
 
+    printf(stderr, "Request sent");
+
     return 0;
 }
 
-bool check_for_advertise(int sockfd) {
+bool check_for_advertise(int sockfd, uint8_t *packet) {
     fd_set read_fds;
     struct timeval timeout;
     FD_ZERO(&read_fds);
@@ -362,15 +364,17 @@ bool check_for_advertise(int sockfd) {
     if (ready > 0 && FD_ISSET(sockfd, &read_fds)) {
         uint8_t buffer[1500];
         ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
+        packet = buffer;
         if (len > 0 && buffer[0] == ADVERTISE_MESSAGE_TYPE) {
             printf("Received Advertise\n");
             return true;
         }
     }
+
     return false;
 }
 
-bool parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit) {
+dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit) {
 
     dhcpv6_message_t *advertise_message = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
 
@@ -482,9 +486,9 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
     if (config->oro_list_length > 0) {
         request->option_list[index].option_code = ORO_OPTION_CODE;
         request->option_list[index].option_length = config->oro_list_length * 2;
-        request->option_list[index].option_request_t.option_request = (uint8_t *)malloc(msg->option_list[index].option_length);
+        request->option_list[index].option_request_t.option_request = (uint8_t *)malloc(request->option_list[index].option_length);
         valid_memory_allocation(request->option_list[index].option_request_t.option_request);
-        memcpy(msg->option_list[index].option_request_t.option_request, config->oro_list, config->oro_list_length);
+        memcpy(request->option_list[index].option_request_t.option_request, config->oro_list, config->oro_list_length);
         index++;
     }
 
@@ -526,8 +530,6 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
 
     return request;
 }
-
-
 
 bool check_for_reply(int sockfd) {
     fd_set read_fds;

@@ -378,8 +378,8 @@ dhcpv6_message_t *buildSolicit(config_t *, const char *);
 int sendSolicit(dhcpv6_message_t *, int, const char *, uint32_t);
 
 // Advertisement
-bool check_for_advertise(int);
-bool parseAdvertisement(uint8_t *, dhcpv6_message_t *);
+bool check_for_advertise(int, uint8_t *);
+dhcpv6_message_t *parseAdvertisement(uint8_t *, dhcpv6_message_t *);
 
 // Request
 dhcpv6_message_t *buildRequest(dhcpv6_message_t *, config_t *);

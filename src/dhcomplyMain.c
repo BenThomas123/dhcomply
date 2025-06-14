@@ -26,7 +26,12 @@ int main(int argc, char *argv[])
         } else {
             sendSolicit(firstSol, sockfd, argv[2], 65535);
         }
-        if (!check_for_advertise(sockfd)) {
+        uint8_t *advertisement_packet = (uint8_t *)calloc(1500, sizeof(uint8_t));
+        bool advertisement_check = check_for_advertise(sockfd, advertisement_packet);
+        if (!advertisement_check) {
+            dhcpv6_message_t *advertisement = parseAdvertisement(advertisement_packet, firstSol);
+            dhcpv6_message_t *request = buildRequest(advertisement, config_file);
+            sendRequest(request, sockfd, argv[2], 0);
         }
         retransmission++;
     }
