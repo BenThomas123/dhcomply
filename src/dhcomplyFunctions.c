@@ -295,39 +295,6 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 buffer[offset++] = elapsed_time & 0xFF;
                 break;
 
-            case ORO_OPTION_CODE:
-                // Ensure ORO is present and valid
-                for (int byte = 0; byte < opt->option_length / 2; byte++) {
-                    buffer[offset++] = (opt->option_request_t.option_request[byte] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                    buffer[offset++] = opt->option_request_t.option_request[byte] & ONE_BYTE_MASK;
-                }
-
-                break;
-
-            case IA_NA_OPTION_CODE:
-                int offset_na_2 = offset + 4;
-                int offset_na_3 = offset + 8;
-                for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_na_t.iaid >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset_na_2++] = (opt->ia_na_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK; 
-                    buffer[offset_na_3++] = (opt->ia_na_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                }
-                offset = offset_na_3;
-                break;
-
-            case IA_PD_OPTION_CODE:
-                int offset_pd_2 = offset + 4;
-                int offset_pd_3 = offset + 8;
-                for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_pd_t.iaid >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset_pd_2++] = (opt->ia_pd_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK; 
-                    buffer[offset_pd_3++] = (opt->ia_pd_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                }
-                offset = offset_pd_3;
-
-
-                break;
-
             default:
                 break;
         }
@@ -460,7 +427,6 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
     valid_memory_allocation(request->option_list);
 
     size_t index = 0;
-
     for (int i = 0; i < request->option_count; i++) {
         dhcpv6_option_t *opt = &advertisement->option_list[i];
         uint16_t option_code = opt->option_code;
@@ -468,7 +434,7 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
         switch (opt->option_code) {
             case CLIENT_ID_OPTION_CODE:
                 request->option_list[index].option_code = CLIENT_ID_OPTION_CODE;
-                request->option_list[index].option_length = advertisement->option_list[0].option_length;
+                request->option_list[index].option_length = advertisement->option_list[i].option_length;
                 request->option_list[index].client_id_t.duid.hw_type = 1;
                 request->option_list[index].client_id_t.duid.duid_type = 3;
                 request->option_list[index].client_id_t.duid.mac = (uint8_t *)calloc(MAC_ADDRESS_LENGTH, sizeof(uint8_t));
@@ -478,67 +444,18 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
                 }
                 index++;
                 break;
+
             case SERVER_ID_OPTION_CODE:
-                duid_ll_t *duid1 = (duid_ll_t *)malloc(sizeof(duid_ll_t));
-                duid1->duid_type = advertisement->option_list[index]
-                duid1->hw_type = packet[index + 6] << 8 | packet[index + 7];
-                duid1->mac = (uint8_t *)calloc(option_length - 4, sizeof(uint8_t));
-                for (int i = 0; i < option_length- 4; i++) {
-                    duid1->mac[i] = packet[i + (index + 8)];
+                request->option_list[index].option_code = advertisement->option_list[i].option_code;
+                request->option_list[index].option_length = advertisement->option_list[i].option_length;
+                request->option_list[index].client_id_t.duid.hw_type = advertisement->option_list[i].client_id_t.duid.hw_type;
+                request->option_list[index].client_id_t.duid.duid_type = advertisement->option_list[i].client_id_t.duid.duid_type;
+                request->option_list[index].client_id_t.duid->mac = (uint8_t *)calloc(option_length - 4, sizeof(uint8_t));
+                for (int octet = 0; octet < option_length - 4; octet++) {
+                    request->option_list[index].client_id_t.duid.mac[octet] = packet[octet + (index + 8)];
                 }
                 break;
         }
-
-    }
-
-
-    // ELAPSED_TIME
-    request->option_list[index].option_code = ELAPSED_TIME_OPTION_CODE;
-    request->option_list[index].option_length = 2;
-    request->option_list[index].elapsed_time_t.elapsed_time_value = 0;
-    index++;
-
-    // ORO
-    if (config->oro_list_length > 0) {
-        request->option_list[index].option_code = ORO_OPTION_CODE;
-        request->option_list[index].option_length = config->oro_list_length * 2;
-        request->option_list[index].option_request_t.option_request = (uint8_t *)malloc(request->option_list[index].option_length);
-        valid_memory_allocation(request->option_list[index].option_request_t.option_request);
-        memcpy(request->option_list[index].option_request_t.option_request, config->oro_list, config->oro_list_length);
-        index++;
-    }
-
-    // RAPID_COMMIT
-    if (config->rapid_commit) {
-        request->option_list[index].option_code = RAPID_COMMIT_OPTION_CODE;
-        request->option_list[index].option_length = 0;
-        index++;
-    }
-
-    // RECONF_ACCEPT
-    if (config->reconfigure) {
-        request->option_list[index].option_code = RECONF_ACCEPT_OPTION_CODE;
-        request->option_list[index].option_length = 0;
-        index++;
-    }
-
-    // IA_NA
-    if (config->na) {
-        request->option_list[index].option_code = IA_NA_OPTION_CODE;
-        request->option_list[index].option_length = 12;
-        request->option_list[index].ia_na_t.iaid = rand() & FOUR_BYTE_MASK;
-        request->option_list[index].ia_na_t.t1 = 0;
-        request->option_list[index].ia_na_t.t2 = 0;
-        index++;
-    } 
-
-    // IA_PD
-    if (config->pd) {
-        request->option_list[index].option_code = IA_PD_OPTION_CODE;
-        request->option_list[index].option_length = 12;
-        request->option_list[index].ia_pd_t.iaid = rand() & FOUR_BYTE_MASK;
-        request->option_list[index].ia_pd_t.t1 = 0;
-        request->option_list[index].ia_pd_t.t2 = 0;
         index++;
     }
 
