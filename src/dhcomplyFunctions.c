@@ -330,13 +330,6 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 break;
         }
     }*/
-
-    struct sockaddr_in6 src = {0};
-    src.sin6_family = AF_INET6;
-    src.sin6_port = htons(DHCP_CLIENT_PORT);
-    src.sin6_addr = in6addr_any;
-    bind(sockfd, (struct sockaddr*)&src, sizeof(src));
-
     struct sockaddr_in6 dest = {0};
     dest.sin6_family = AF_INET6;
     dest.sin6_port = htons(DHCP_SERVER_PORT);
