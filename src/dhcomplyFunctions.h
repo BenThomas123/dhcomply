@@ -378,15 +378,15 @@ dhcpv6_message_t *buildSolicit(config_t *, const char *);
 int sendSolicit(dhcpv6_message_t *, int, const char *, uint32_t);
 
 // Advertisement
-bool check_for_advertise(int, uint8_t *);
+bool check_for_message(int, uint8_t *, int);
 dhcpv6_message_t *parseAdvertisement(uint8_t *, dhcpv6_message_t *);
 
 // Request
 dhcpv6_message_t *buildRequest(dhcpv6_message_t *, config_t *);
 int sendRequest(dhcpv6_message_t *, int , const char *, uint32_t);
 
-// Reply
-bool check_for_reply(int);
+//reply
+int parseReply(uint8_t *, dhcpv6_message_t *, const char *);
 
 // Renew
 dhcpv6_message_t *buildRenew(config_t *);
