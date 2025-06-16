@@ -601,6 +601,7 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                 char address_string[39];
                 uint128_to_str(address, address_string);
                 int a = sprintf(cmd, "sudo ip -6 addr %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, request->option_list[option_index].ia_address_t.prefered_lifetime, request->option_list[option_index].ia_address_t.valid_lifetime);
+                system(cmd);
                 fprintf(stderr, "%d\n", a);
 
                 break;
