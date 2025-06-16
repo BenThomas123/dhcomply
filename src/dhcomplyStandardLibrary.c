@@ -83,7 +83,7 @@ void to_uppercase(char *str)
 }
 
 void uint128_to_str(__uint128_t value, char *str) {
-    char buffer[50]; // max digits of 2^128 is 39
+    char buffer[50];
     int i = 0;
 
     if (value == 0) {
