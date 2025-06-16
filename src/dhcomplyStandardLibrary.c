@@ -82,23 +82,16 @@ void to_uppercase(char *str)
     }
 }
 
-void uint128_to_str(__uint128_t value, char *str) {
-    char buffer[50];
-    int i = 0;
+int uint128_to_ipv6_str(__uint128_t value, char *out_str, size_t str_len) {
+    struct in6_addr addr;
 
-    if (value == 0) {
-        str[0] = '0';
-        str[1] = '\0';
-        return;
+    for (int i = 0; i < 16; i++) {
+        addr.s6_addr[15 - i] = (value >> (i * 8)) & 0xFF;
     }
 
-    while (value > 0) {
-        buffer[i++] = '0' + (value % 10);
-        value /= 10;
+    if (inet_ntop(AF_INET6, &addr, out_str, str_len) == NULL) {
+        return -1;
     }
 
-    // reverse the buffer into the string
-    for (int j = 0; j < i; ++j)
-        str[j] = buffer[i - j - 1];
-    str[i] = '\0';
+    return 0;
 }
