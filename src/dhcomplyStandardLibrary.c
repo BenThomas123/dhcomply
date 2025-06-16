@@ -82,3 +82,23 @@ void to_uppercase(char *str)
     }
 }
 
+void uint128_to_str(__uint128_t value, char *str) {
+    char buffer[50]; // max digits of 2^128 is 39
+    int i = 0;
+
+    if (value == 0) {
+        str[0] = '0';
+        str[1] = '\0';
+        return;
+    }
+
+    while (value > 0) {
+        buffer[i++] = '0' + (value % 10);
+        value /= 10;
+    }
+
+    // reverse the buffer into the string
+    for (int j = 0; j < i; ++j)
+        str[j] = buffer[i - j - 1];
+    str[i] = '\0';
+}
