@@ -338,6 +338,57 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 buffer[offset++] = opt->ia_address_t.valid_lifetime & ONE_BYTE_MASK;
 
                 break;
+
+            case IA_PD_OPTION_CODE:
+                buffer[offset++] = (opt->ia_pd_t.iaid >> THREE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_pd_t.iaid >> TWO_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_pd_t.iaid >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->ia_pd_t.iaid & ONE_BYTE_MASK;
+
+                buffer[offset++] = (opt->ia_pd_t.t1 >> THREE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_pd_t.t1 >> TWO_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_pd_t.t1 >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->ia_pd_t.t1 & ONE_BYTE_MASK;
+
+                buffer[offset++] = (opt->ia_pd_t.t2 >> THREE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_pd_t.t2 >> TWO_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_pd_t.t2 >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->ia_pd_t.t2 & ONE_BYTE_MASK;
+ 
+                break;
+                
+            case IAPREFIX_OPTION_CODE:
+                fprintf(stderr, "%s\n", "here");
+                buffer[offset++] = (opt->ia_prefix_t.prefered_lifetime >> THREE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.prefered_lifetime >> TWO_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.prefered_lifetime >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->ia_prefix_t.prefered_lifetime & ONE_BYTE_MASK;
+
+                buffer[offset++] = (opt->ia_prefix_t.valid_lifetime >> THREE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.valid_lifetime >> TWO_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.valid_lifetime >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->ia_prefix_t.valid_lifetime & ONE_BYTE_MASK;
+
+                buffer[offset++] = opt->ia_prefix_t.prefix_length;
+
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 120) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 112) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 104) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 96) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 88) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 80) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 72) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 64) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 56) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 48) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 40) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 32) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 24) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 16) & ONE_BYTE_MASK;
+                buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> 8) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->ia_prefix_t.ipv6_prefix & ONE_BYTE_MASK;
+                break;
+
             case ELAPSED_TIME_OPTION_CODE:
                 
                 buffer[offset++] = (elapsed_time >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
@@ -440,8 +491,11 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
                 }
 
                 option_index++;
-                advertise_message->option_list[option_index].option_code = 5;
-                advertise_message->option_list[option_index].option_length = 24;
+                advertise_message->option_list[option_index].option_code |= (packet[index + 16] << 8);
+                advertise_message->option_list[option_index].option_code |= packet[index + 17];
+
+                advertise_message->option_list[option_index].option_length |= (packet[index + 18] << 8);
+                advertise_message->option_list[option_index].option_length |= packet[index + 19];
 
                 uint128_t address = 0;
                 
@@ -464,6 +518,29 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
                     advertise_message->option_list[option_index].ia_pd_t.t1 |= (packet[index + (8 + byte)] << (8 * (3 - byte)));
                     advertise_message->option_list[option_index].ia_pd_t.t2 |= (packet[index + (12 + byte)] << (8 * (3 - byte)));
                 }
+
+                option_index++;
+                advertise_message->option_list[option_index].option_code |= (packet[index + 16] << 8);
+                advertise_message->option_list[option_index].option_code |= packet[index + 17];
+                advertise_message->option_list[option_index].option_length |= (packet[index + 18] << 8);
+                advertise_message->option_list[option_index].option_length |= packet[index + 19];
+
+                for (int byte = 3; byte > -1; byte--) {
+                    advertise_message->option_list[option_index].ia_prefix_t.prefered_lifetime |= (packet[index + (20 + byte)] << (8 * (3 - byte)));
+                    advertise_message->option_list[option_index].ia_prefix_t.valid_lifetime |= (packet[index + (24 + byte)] << (8 * (3 - byte)));
+                }
+
+                advertise_message->option_list[option_index].ia_prefix_t.prefix_length |= packet[index + 28];
+
+                uint128_t prefix = 0;
+                
+                for (int byte = 15; byte > -1; byte--) {
+                    prefix <<= ONE_BYTE_SHIFT;
+                    prefix |= packet[index + 29 + (15 - byte)];
+                }
+
+                advertise_message->option_list[option_index].ia_prefix_t.ipv6_prefix = prefix;
+
                 break;
             case RECONF_ACCEPT_OPTION_CODE:
                 break;
@@ -521,6 +598,10 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
 
             case IA_PD_OPTION_CODE:
                 request->option_list[index].ia_pd_t = advertisement->option_list[i].ia_pd_t;
+                break;
+
+            case IAPREFIX_OPTION_CODE:
+                request->option_list[index].ia_prefix_t = advertisement->option_list[i].ia_prefix_t;
                 break;
 
             default:
