@@ -248,7 +248,7 @@ static const uint32_t decline_upper[] = {
 /*
     Config File Constants
 */
-/* ====================================================================================== */
+/* ================================================================================ */
 #define CONFIG_FILE_PATH "/etc/dhcomply.conf"
 #define RECONFIGURE_CONFIG_FILE_LINE_RENEW "send dhcp6.reconfigure-accept, 5"
 #define RECONFIGURE_CONFIG_FILE_LINE_REBIND "send dhcp6.reconfigure-accept, 6"
@@ -261,7 +261,7 @@ static const char* ORO[] = {"user-class", "vendor-class", "vendor-opts",
     "pd-exclude", "sol-max-rt", "inf-max-rt"};
 static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 67, 82, 83}; 
 #define MAX_LINE_LEN 150
-/* ====================================================================================== */
+/* ================================================================================ */
 
 /*
     Miscellaneous constants
@@ -270,14 +270,11 @@ static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 67, 82, 83};
 #define MILLISECONDS_IN_SECONDS 1000
 #define MAX_PACKET_SIZE 1500
 #define ORO_ARRAY_LENGTH 9
-#define MAC_ADDRESS_LENGTH 6
-#define OPTION_CODE_LENGTH_IN_ORO 6
+#define OPTION_CODE_LENGTH_IN_ORO 2
 #define EMPTY_STRING ""
 /* ================================== */
 
 
-/*
-    Bitwise constants
 /* ============================================= */
 #define ONE_BYTE_SHIFT 8
 #define TWO_BYTE_SHIFT 16
@@ -450,7 +447,7 @@ int sendRelease(dhcpv6_message_t *, int );
 
 // Reconfigure
 dhcpv6_message_t *buildReconfigure(config_t *);
-int buildReconfigure(dhcpv6_message_t *, int );
+int sendReconfigure(dhcpv6_message_t *, int );
 
 // Information-Request
 dhcpv6_message_t *buildInformationRequest(config_t *);

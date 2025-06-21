@@ -15,6 +15,8 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
+#define MAC_ADDRESS_LENGTH 6
+
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;

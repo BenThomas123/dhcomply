@@ -90,6 +90,7 @@ uint32_t valid_transaction_id (uint8_t byte1, uint8_t byte2, uint8_t byte3) {
     trans_id |= (byte2 << ONE_BYTE_SHIFT);
     trans_id |= byte3;
 
+    return trans_id;
 }
 
 
@@ -308,8 +309,8 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
     }
 
     advertise_message->message_type = ADVERTISE_MESSAGE_TYPE;
-    advertise_message->transaction_id = id;
-    advertise_message->option_count = solicit->option_count;
+    advertise_message->transaction_id = valid_transaction_id(packet[1], packet[2], packet[3]);
+    advertise_message->option_count = solicit->option_count + 1;
 
     advertise_message->option_list = (dhcpv6_option_t *)calloc(advertise_message->option_count + 2, sizeof(dhcpv6_option_t));
     valid_memory_allocation(advertise_message->option_list);
@@ -363,7 +364,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
                 advertise_message->option_list[option_index].ia_address_t.ipv6_address = address;
 
                 for (int byte = 3; byte > -1; byte--) {
-                    advertise_message->option_list[option_index].ia_address_t.prefered_lifetime |= (packet[index + (36 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    advertise_message->option_list[option_index].ia_address_t.preferred_lifetime |= (packet[index + (36 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                     advertise_message->option_list[option_index].ia_address_t.valid_lifetime |= (packet[index + (40 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
 
@@ -382,7 +383,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
                 advertise_message->option_list[option_index].option_length |= packet[index + 19];
 
                 for (int byte = 3; byte > -1; byte--) {
-                    advertise_message->option_list[option_index].ia_prefix_t.prefered_lifetime |= (packet[index + (20 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    advertise_message->option_list[option_index].ia_prefix_t.preferred_lifetime |= (packet[index + (20 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                     advertise_message->option_list[option_index].ia_prefix_t.valid_lifetime |= (packet[index + (24 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
 
@@ -692,7 +693,7 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                 char cmd[512];
                 char address_string[INET6_ADDRSTRLEN];
                 uint128_to_ipv6_str(address, address_string, sizeof(address_string));
-                int a = sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, request->option_list[option_index].ia_address_t.prefered_lifetime, request->option_list[option_index].ia_address_t.valid_lifetime);
+                sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, request->option_list[option_index].ia_address_t.preferred_lifetime, request->option_list[option_index].ia_address_t.valid_lifetime);
                 system(cmd);
 
                 break;
@@ -718,7 +719,7 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                     char address_string[INET6_ADDRSTRLEN];
                     uint128_to_ipv6_str(DNSServerAddress, address_string, sizeof(address_string));
 
-                    cmd[strlen(address_string) + strlen(iface) + 25];
+                    char cmd[strlen(address_string) + strlen(iface) + 25];
                     sprintf(cmd, "sudo resolvectl dns %s %s\n", iface, address_string);
                     system(cmd);
                 }
