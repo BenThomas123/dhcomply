@@ -343,7 +343,7 @@ typedef struct {
             uint32_t infromation_refresh_time;
         } information_refresh_time_t;
         struct dns_recursive_name_server {
-            struct ia_address *dns_servers;
+            uint128_t *dns_servers;
         } dns_recursive_name_server_t;
         struct domain_search_list {
             char *search_list;
