@@ -1,5 +1,7 @@
 #include "dhcomplyStandardLibrary.h"
 
+// Retransmission constants
+/* ================================================= */
 #define SOLICIT_RETRANS_COUNT 14
 #define REQUEST_RETRANS_COUNT 10
 #define RENEW_RETRANS_COUNT   10
@@ -161,6 +163,8 @@ static const uint32_t decline_upper[] = {
     4850,
     10190
 };
+/* ================================================= */
+
 
 // message type constants
 /* =========================================== */
@@ -175,6 +179,8 @@ static const uint32_t decline_upper[] = {
 #define DECLINE_MESSAGE_TYPE               9
 #define RECONFIGURE_MESSAGE_TYPE          10
 #define INFORMATION_REQUEST_MESSAGE_TYPE  11
+#define RELAY_FORWARD_MESSAGE_TYPE        12
+#define RELAY_REPLY_MESSAGE_TYPE          13
 /* =========================================== */
 
 // option code constants
@@ -231,21 +237,48 @@ static const uint32_t decline_upper[] = {
 #define NOPREFIXAVAIL_STATUS_CODE         6
 /* ================================================== */
 
+// IA strings
+/* ================================================== */
+#define IANA_STRING "N"
+#define IAPD_STRING "P"
+#define IA_BOTH_STRING "NP"
+#define STATELESS_STRING "S"
+/* ================================================== */
+
+/*
+    Config File Constants
+*/
+/* ====================================================================================== */
 #define CONFIG_FILE_PATH "/etc/dhcomply.conf"
+#define RECONFIGURE_CONFIG_FILE_LINE_RENEW "send dhcp6.reconfigure-accept, 5"
+#define RECONFIGURE_CONFIG_FILE_LINE_REBIND "send dhcp6.reconfigure-accept, 6"
+#define RECONFIGURE_CONFIG_FILE_LINE_INFO_REQ "send dhcp6.reconfigure-accept, 7"
+#define RAPID_COMMIT_LINE "send dhcp6.rapid-commit"
+#define FQDN_CONFIG_FILE_LINE "send dhcp6.fully-qualified-domain-name"
+#define OPTION_REQUEST_OPTION_LINE "send dhcp6.option-request-option."
+static const char* ORO[] = {"user-class", "vendor-class", "vendor-opts", 
+    "dns-servers",  "domain-search-list", "information-refresh-time",
+    "pd-exclude", "sol-max-rt", "inf-max-rt"};
+static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 67, 82, 83}; 
 #define MAX_LINE_LEN 150
+/* ====================================================================================== */
+
+/*
+    Miscellaneous constants
+*/ 
+/* ================================== */
 #define MILLISECONDS_IN_SECONDS 1000
 #define MAX_PACKET_SIZE 1500
-
-#define RECONFIGURE_CONFIG_FILE_LINE_RENEW "send dhcp6.reconfigre-accept, 5"
-#define RECONFIGURE_CONFIG_FILE_LINE_REBIND "send dhcp6.reconfigre-accept, 6"
-#define RECONFIGURE_CONFIG_FILE_LINE_INFO_REQ "send dhcp6.reconfigre-accept, 7"
-#define RAPID_COMMIT_LINE "send dhcp6.rapid-commit"
-#define OPTION_REQUEST_OPTION_LINE "send dhcp6.option-request-option."
-static const char* ORO[] = {"user-class", "vendor-class", "vendor-opts", "dns-servers", "domain-search-list", "information-refresh-time", "fqdn", "pd-exclude", "sol-max-rt", "inf-max-rt"};
-static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 39, 67, 82, 83}; 
-#define ORO_ARRAY_LENGTH 10
+#define ORO_ARRAY_LENGTH 9
 #define MAC_ADDRESS_LENGTH 6
+#define OPTION_CODE_LENGTH_IN_ORO 6
+#define EMPTY_STRING ""
+/* ================================== */
 
+
+/*
+    Bitwise constants
+/* ============================================= */
 #define ONE_BYTE_SHIFT 8
 #define TWO_BYTE_SHIFT 16
 #define THREE_BYTE_SHIFT 24
@@ -255,6 +288,10 @@ static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 39, 67, 82, 83};
 #define TWO_BYTE_MASK 0xFFFF
 #define THREE_BYTE_MASK 0xFFFFFF
 #define FOUR_BYTE_MASK 0xFFFFFFFF
+
+#define HEXTETS_IN_IPV6_ADDRESS 16
+#define START_POINT_IN_READING_ADDRESS 15
+/* ============================================== */
 
 typedef struct duid_ll {
     uint16_t duid_type;
@@ -274,7 +311,7 @@ typedef struct {
         } server_id_t;
         struct ia_address {
             uint128_t ipv6_address;
-            uint64_t prefered_lifetime;
+            uint64_t preferred_lifetime;
             uint64_t valid_lifetime;
             union dhcpv6_option *ia_address_options;
         } ia_address_t;
@@ -316,10 +353,10 @@ typedef struct {
             uint32_t enterprise_number;
             uint128_t vendor_class_data;
         } vendor_class_option_t;
-        struct vendor_specifc_option {
+        struct vendor_specific_option {
             uint32_t enterprise_number;
             uint128_t vendor_option_data;
-        } vendor_specifc_option_t;
+        } vendor_specific_option_t;
         struct interface_id {
             uint128_t interface_id_value;
         } interface_id_t;
@@ -328,7 +365,7 @@ typedef struct {
         } reconfigure_message_t;
         struct ia_prefix {
             uint128_t ipv6_prefix;
-            uint64_t prefered_lifetime;
+            uint64_t preferred_lifetime;
             uint64_t valid_lifetime;
             uint8_t prefix_length;
             union dhcpv6_option *ia_prefix_options;
@@ -340,7 +377,7 @@ typedef struct {
             struct ia_prefix_t *prefixes;
         } ia_pd_t;
         struct information_refresh_time {
-            uint32_t infromation_refresh_time;
+            uint32_t information_refresh_time;
         } information_refresh_time_t;
         struct dns_recursive_name_server {
             uint128_t *dns_servers;
@@ -373,19 +410,22 @@ typedef struct config {
     bool pd;
 } config_t;
 
+// general functions
+config_t *read_config_file(char *);
+bool check_for_message(int, uint8_t *, int);
+
 // Solicit
 dhcpv6_message_t *buildSolicit(config_t *, const char *);
 int sendSolicit(dhcpv6_message_t *, int, const char *, uint32_t);
 
 // Advertisement
-bool check_for_message(int, uint8_t *, int);
 dhcpv6_message_t *parseAdvertisement(uint8_t *, dhcpv6_message_t *);
 
 // Request
 dhcpv6_message_t *buildRequest(dhcpv6_message_t *, config_t *);
 int sendRequest(dhcpv6_message_t *, int , const char *, uint32_t);
 
-//reply
+// Reply
 int parseReply(uint8_t *, dhcpv6_message_t *, const char *);
 
 // Renew
@@ -408,10 +448,11 @@ int sendDecline(dhcpv6_message_t *, int );
 dhcpv6_message_t *buildRelease(config_t *);
 int sendRelease(dhcpv6_message_t *, int );
 
+// Reconfigure
+dhcpv6_message_t *buildReconfigure(config_t *);
+int buildReconfigure(dhcpv6_message_t *, int );
+
 // Information-Request
 dhcpv6_message_t *buildInformationRequest(config_t *);
 int sendInformationRequest(dhcpv6_message_t *, int);
 
-config_t *read_config_file(char *);
-int setup_dhcpv6_socket(const char *);
-int get_mac_address(const char *, uint8_t[6]);

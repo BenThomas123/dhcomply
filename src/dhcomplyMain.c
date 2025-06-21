@@ -2,7 +2,7 @@
 
 int main(int argc, char *argv[])
 {
-    randomize();
+    init_dhcomply();
     if (argc < 2)
     {
         exit(-1);

@@ -26,10 +26,6 @@ void valid_socket(int sockfd) {
     }
 }
 
-void randomize () {
-    srand(time(NULL));
-}
-
 // string library add ons
 char *trim(char *str)
 {
@@ -94,4 +90,39 @@ int uint128_to_ipv6_str(__uint128_t value, char *out_str, size_t str_len) {
     }
 
     return 0;
+}
+
+int get_mac_address(const char *iface_name, uint8_t mac[6]) {
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    valid_socket(sock);
+
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, iface_name, IFNAMSIZ - 1);
+
+    if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0) {
+        close(sock);
+        exit(-1);
+    }
+
+    memcpy(mac, ifr.ifr_hwaddr.sa_data, MAC_ADDRESS_LENGTH);
+    close(sock);
+    return 0;
+}
+
+void create_config_file() {
+    FILE *fp = fopen("/etc/dhcomply.conf", "wx");
+    if (fp == NULL) {
+        return;
+    }
+    fclose(fp);
+}
+
+void init_dhcomply() {
+    randomize();
+    create_config_file();
+}
+
+void randomize () {
+    srand(time(NULL));
 }
