@@ -21,16 +21,16 @@ int main(int argc, char *argv[])
         uint32_t retrans_time = lower_solicit[retransmissionSolicit] + (rand() % (upper_solicit[retransmissionSolicit] - lower_solicit[retransmissionSolicit]));
         elapse_time += retrans_time;
         uint8_t *advertisement_packet = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
-        bool advertisement_check = check_for_message(sockfd, advertisement_packet, ADVERTISE_MESSAGE_TYPE);
+        int advertisement_check = check_for_message(sockfd, advertisement_packet, ADVERTISE_MESSAGE_TYPE);
         if (advertisement_check) {
-            dhcpv6_message_t *advertisement = parseAdvertisement(advertisement_packet, firstSol);
+            dhcpv6_message_t *advertisement = parseAdvertisement(advertisement_packet, firstSol, advertisement_check);
             dhcpv6_message_t *request = buildRequest(advertisement, config_file);
             sendRequest(request, sockfd, argv[2], 0);
             int retransmissionRequest = 0;
             elapse_time = 0;
             while (retransmissionRequest < REQUEST_RETRANS_COUNT) {
                 uint8_t *reply_packet = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
-                bool reply_check = check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
+                int reply_check = check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
                 if (reply_check) {
                     parseReply(reply_packet, request, argv[2]);
                     while(1) {}

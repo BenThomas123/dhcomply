@@ -377,7 +377,7 @@ typedef struct {
             uint32_t information_refresh_time;
         } information_refresh_time_t;
         struct dns_recursive_name_server {
-            uint128_t *dns_servers;
+            uint8_t *dns_servers;
         } dns_recursive_name_server_t;
         struct domain_search_list {
             char *search_list;
@@ -409,14 +409,15 @@ typedef struct config {
 
 // general functions
 config_t *read_config_file(char *);
-bool check_for_message(int, uint8_t *, int);
+int check_for_message(int, uint8_t *, int);
+uint8_t get_option_count (uint8_t *, unsigned long int);
 
 // Solicit
 dhcpv6_message_t *buildSolicit(config_t *, const char *);
 int sendSolicit(dhcpv6_message_t *, int, const char *, uint32_t);
 
 // Advertisement
-dhcpv6_message_t *parseAdvertisement(uint8_t *, dhcpv6_message_t *);
+dhcpv6_message_t *parseAdvertisement(uint8_t *, dhcpv6_message_t *, int);
 
 // Request
 dhcpv6_message_t *buildRequest(dhcpv6_message_t *, config_t *);
