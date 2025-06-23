@@ -743,7 +743,6 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                         free(updated);
                     }
 
-                    fprintf(stderr, "%s\n", cumulative_string2);
                 }
 
                 char cmd24[strlen(cumulative_string2) + strlen(iface) + 30];
