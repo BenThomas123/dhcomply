@@ -61,7 +61,7 @@ config_t *read_config_file(char *iaString) {
     return config_file;
 }
 
-bool check_for_message(int sockfd, uint8_t *packet, int type) {
+int check_for_message(int sockfd, uint8_t *packet, int type) {
     fd_set read_fds;
     struct timeval timeout;
     FD_ZERO(&read_fds);
@@ -75,12 +75,12 @@ bool check_for_message(int sockfd, uint8_t *packet, int type) {
         uint8_t buffer[MAX_PACKET_SIZE];
         ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
         memcpy(packet, buffer, MAX_PACKET_SIZE);
-        if (len > 0 && buffer[0] == type) {
-            return true;
+        if (len > 5 && buffer[0] == type) {
+            return len;
         }
     }
 
-    return false;
+    return 0;
 }
 
 uint32_t valid_transaction_id (uint8_t byte1, uint8_t byte2, uint8_t byte3) {
@@ -93,7 +93,19 @@ uint32_t valid_transaction_id (uint8_t byte1, uint8_t byte2, uint8_t byte3) {
     return trans_id;
 }
 
+uint8_t get_option_count (uint8_t *packet, unsigned long int size) {
+    long unsigned int index = 6;
+    uint8_t option_count = 0;
 
+    while (index < size) {
+        uint16_t option_length = packet[index] << ONE_BYTE_SHIFT;
+        option_length |= packet[index + 1];
+        option_count++;
+        index += (option_length + 4);
+    }
+
+    return option_count;
+}
 
 
 
@@ -299,7 +311,7 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     return 0;
 }
 
-dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit) {
+dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit, int size) {
 
     dhcpv6_message_t *advertise_message = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
     valid_memory_allocation(advertise_message);
@@ -308,11 +320,13 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
         return NULL;
     }
 
+    uint8_t option_count = get_option_count(packet, size);
+
     advertise_message->message_type = ADVERTISE_MESSAGE_TYPE;
     advertise_message->transaction_id = valid_transaction_id(packet[1], packet[2], packet[3]);
-    advertise_message->option_count = solicit->option_count + 1;
+    advertise_message->option_count = option_count + 1;
 
-    advertise_message->option_list = (dhcpv6_option_t *)calloc(advertise_message->option_count + 2, sizeof(dhcpv6_option_t));
+    advertise_message->option_list = (dhcpv6_option_t *)calloc(advertise_message->option_count, sizeof(dhcpv6_option_t));
     valid_memory_allocation(advertise_message->option_list);
 
     int index = 4;
@@ -342,9 +356,9 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
                 break;
             case IA_NA_OPTION_CODE:
                 for (int byte = 3; byte > -1; byte--) {
-                    advertise_message->option_list[option_index].ia_na_t.iaid |= (packet[index + (4 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
-                    advertise_message->option_list[option_index].ia_na_t.t1 |= (packet[index + (8 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
-                    advertise_message->option_list[option_index].ia_na_t.t2 |= (packet[index + (12 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    advertise_message->option_list[option_index].ia_na_t.iaid |= (packet[index + (4 + byte)] << (8 * (3 - byte)));
+                    advertise_message->option_list[option_index].ia_na_t.t1 |= (packet[index + (8 + byte)] << (8 * (3 - byte)));
+                    advertise_message->option_list[option_index].ia_na_t.t2 |= (packet[index + (12 + byte)] << (8 * (3 - byte)));
                 }
 
                 option_index++;
@@ -402,16 +416,12 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
             case RECONF_ACCEPT_OPTION_CODE:
                 break;
             case DNS_SERVERS_OPTION_CODE:
-                advertise_message->option_list[option_index].dns_recursive_name_server_t.dns_servers = (uint128_t *)calloc(option_length / HEXTETS_IN_IPV6_ADDRESS, sizeof(uint128_t));
+                advertise_message->option_list[option_index].dns_recursive_name_server_t.dns_servers = (uint8_t *)calloc(option_length, sizeof(uint8_t));
                 valid_memory_allocation(advertise_message->option_list[option_index].dns_recursive_name_server_t.dns_servers);
-                for (int address = 0; address < option_length / HEXTETS_IN_IPV6_ADDRESS; address++) {
-                    uint128_t server_address = 0;
-                    for (int byte = 0; byte < HEXTETS_IN_IPV6_ADDRESS; byte++) {
-                       server_address <<= ONE_BYTE_SHIFT;
-                       server_address |= packet[index + (HEXTETS_IN_IPV6_ADDRESS * address) + byte + 4];
-                    }
-                    advertise_message->option_list[option_index].dns_recursive_name_server_t.dns_servers[address] = server_address;
+                for (int hextet = 0; hextet < option_length; hextet++) {
+                    advertise_message->option_list[option_index].dns_recursive_name_server_t.dns_servers[hextet] = packet[index + 4 + hextet];
                 }
+
                 break;
 
             case DOMAIN_SEARCH_LIST_OPTION_CODE:
@@ -435,7 +445,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit)
 }
 
 dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *config) {
-    uint8_t option_count = advertisement->option_count;
+    uint8_t option_count = advertisement->option_count - 1;
 
    dhcpv6_message_t *request = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
    valid_memory_allocation(request);
@@ -443,7 +453,7 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
     request->message_type = REQUEST_MESSAGE_TYPE;
     request->transaction_id = rand() & THREE_BYTE_MASK;
 
-    request->option_list = calloc(option_count + 4, sizeof(dhcpv6_option_t));
+    request->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
     valid_memory_allocation(request->option_list);
 
     size_t index = 0;
@@ -560,32 +570,41 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 break;
 
             case IA_NA_OPTION_CODE:
+                int offset_na_2 = offset + 4;
+                int offset_na_3 = offset + 8;
                 for (int octet = 3; octet > -1; octet--) {
                     buffer[offset++] = (opt->ia_na_t.iaid >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset++] = (opt->ia_na_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset++] = (opt->ia_na_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+                    buffer[offset_na_2++] = (opt->ia_na_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK; 
+                    buffer[offset_na_3++] = (opt->ia_na_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                 }
+                offset = offset_na_3;
                 
                 break;
 
             case IA_ADDR_OPTION_CODE:
-                for (int octet = 120; octet >= 0; octet -= 8) {
+                for (int octet = 120; octet > -1; octet -= 8) {
                     buffer[offset++] = (opt->ia_address_t.ipv6_address >> octet) & ONE_BYTE_MASK;
                 }
 
                 for (int octet = 3; octet > -1; octet--) {
                     buffer[offset++] = (opt->ia_address_t.preferred_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+                }
+
+                for (int octet = 3; octet > -1; octet--) {
                     buffer[offset++] = (opt->ia_address_t.valid_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                 }
 
                 break;
 
             case IA_PD_OPTION_CODE:
+                int offset_pd_2 = offset + 4;
+                int offset_pd_3 = offset + 8;
                 for (int octet = 3; octet > -1; octet--) {
                     buffer[offset++] = (opt->ia_pd_t.iaid >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset++] = (opt->ia_pd_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset++] = (opt->ia_pd_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+                    buffer[offset_pd_2++] = (opt->ia_pd_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK; 
+                    buffer[offset_pd_3++] = (opt->ia_pd_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                 }
+                offset = offset_pd_3;
                 break;
                 
             case IAPREFIX_OPTION_CODE:
@@ -603,7 +622,6 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 break;
 
             case ELAPSED_TIME_OPTION_CODE:
-                
                 buffer[offset++] = (elapsed_time >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 buffer[offset++] = elapsed_time & ONE_BYTE_MASK;
                 break;
@@ -611,15 +629,14 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
             case ORO_OPTION_CODE:
                 for (int byte = 0; byte < opt->option_length / OPTION_CODE_LENGTH_IN_ORO; byte++) {
                     buffer[offset++] = (opt->option_request_t.option_request[byte] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                    
                     buffer[offset++] = opt->option_request_t.option_request[byte] & ONE_BYTE_MASK;
                 }
                 break;
             
             case DNS_SERVERS_OPTION_CODE:
-                for (int address = 0; address < opt->option_length / HEXTETS_IN_IPV6_ADDRESS; address++) {
-                    for (int byte = START_POINT_IN_READING_ADDRESS; byte > -1; byte--) {
-                       buffer[offset++] = ((opt->dns_recursive_name_server_t.dns_servers[address] >> (byte * ONE_BYTE_SHIFT)) & ONE_BYTE_MASK);
-                    }
+                for (int byte = 0; byte < opt->option_length; byte++) {
+                    buffer[offset++] = opt->dns_recursive_name_server_t.dns_servers[byte];
                 }
                 break;
 
@@ -705,7 +722,9 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                 }
                 break;
 
-            case DNS_SERVERS_OPTION_CODE:
+            case DNS_SERVERS_OPTION_CODE: {
+                char cumulative_string2[400];
+                char address_string2[100];
 
                 for (int address = 0; address < option_length / HEXTETS_IN_IPV6_ADDRESS; address++) {
                     
@@ -716,14 +735,16 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                         DNSServerAddress |= packet[index + 4 + (START_POINT_IN_READING_ADDRESS - byte) + (address * HEXTETS_IN_IPV6_ADDRESS)];
                     }
 
-                    char address_string[INET6_ADDRSTRLEN];
-                    uint128_to_ipv6_str(DNSServerAddress, address_string, sizeof(address_string));
-
-                    char cmd[strlen(address_string) + strlen(iface) + 25];
-                    sprintf(cmd, "sudo resolvectl dns %s %s\n", iface, address_string);
-                    system(cmd);
+                    uint128_to_ipv6_str(DNSServerAddress, address_string2, sizeof(address_string2));
+                    strcat(cumulative_string2, address_string2);
+                    fprintf(stderr, "%s\n", cumulative_string2);
                 }
+
+                char cmd24[strlen(cumulative_string2) + strlen(iface) + 30];
+                sprintf(cmd24, "sudo resolvectl dns %s %s", iface, cumulative_string2);
+                system(cmd24);
                 break;
+            }
 
             case DOMAIN_SEARCH_LIST_OPTION_CODE: {
                 char domain_search_list[option_length + 1];
