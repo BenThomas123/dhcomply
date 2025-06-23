@@ -723,26 +723,33 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                 break;
 
             case DNS_SERVERS_OPTION_CODE: {
-                char cumulative_string2[400];
+                char cumulative_string2[400] = "";
                 char address_string2[100];
 
-                for (int address = 0; address < option_length / HEXTETS_IN_IPV6_ADDRESS; address++) {
-                    
+                for (int address = 0; address < option_length / 16; address++) {
                     uint128_t DNSServerAddress = 0;
-                
-                    for (int byte = START_POINT_IN_READING_ADDRESS; byte > -1; byte--) {
-                        DNSServerAddress <<= ONE_BYTE_SHIFT;
-                        DNSServerAddress |= packet[index + 4 + (START_POINT_IN_READING_ADDRESS - byte) + (address * HEXTETS_IN_IPV6_ADDRESS)];
+
+                    for (int byte = 15; byte > -1; byte--) {
+                        DNSServerAddress <<= 8;
+                        DNSServerAddress |= packet[index + 4 + (15 - byte) + (address * 16)];
                     }
 
                     uint128_to_ipv6_str(DNSServerAddress, address_string2, sizeof(address_string2));
-                    strcat(cumulative_string2, address_string2);
+
+                    char *updated = append_ipv6_address_if_unique(cumulative_string2, address_string2);
+                    if (updated) {
+                        strncpy(cumulative_string2, updated, sizeof(cumulative_string2) - 1);
+                        cumulative_string2[sizeof(cumulative_string2) - 1] = '\0';
+                        free(updated);
+                    }
+
                     fprintf(stderr, "%s\n", cumulative_string2);
                 }
 
                 char cmd24[strlen(cumulative_string2) + strlen(iface) + 30];
                 sprintf(cmd24, "sudo resolvectl dns %s %s", iface, cumulative_string2);
                 system(cmd24);
+
                 break;
             }
 

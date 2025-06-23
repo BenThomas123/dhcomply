@@ -92,6 +92,34 @@ int uint128_to_ipv6_str(__uint128_t value, char *out_str, size_t str_len) {
     return 0;
 }
 
+char *append_ipv6_address_if_unique(const char *addr_list, const char *new_addr) {
+    if (!addr_list || !new_addr) return 0;
+
+    char *copy = strdup(addr_list);
+    if (!copy) return 0;
+
+    char *token = strtok(copy, " ");
+    while (token) {
+        if (strcmp(token, new_addr) == 0) {
+            free(copy);
+            return strdup(addr_list);
+        }
+        token = strtok(0, " ");
+    }
+    free(copy);
+
+    char *result = malloc(1024);
+    if (!result) return 0;
+
+    if (strlen(addr_list) > 0) {
+        snprintf(result, 1024, "%s %s", addr_list, new_addr);
+    } else {
+        snprintf(result, 1024, "%s", new_addr);
+    }
+
+    return result;
+}
+
 int get_mac_address(const char *iface_name, uint8_t mac[6]) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     valid_socket(sock);
