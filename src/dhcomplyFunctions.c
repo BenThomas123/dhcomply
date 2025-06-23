@@ -763,7 +763,7 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                         system(cmd_23);
                         strcpy(domain_search_list, EMPTY_STRING);
                     } else {
-                        strncat(domain_search_list, (char *)&packet[4 + character], 1);
+                        strcat(domain_search_list, packet[index + 4 + character]);
                     }
                 }
 
