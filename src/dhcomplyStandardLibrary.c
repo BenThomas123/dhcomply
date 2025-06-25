@@ -120,6 +120,34 @@ char *append_ipv6_address_if_unique(const char *addr_list, const char *new_addr)
     return result;
 }
 
+int write_radvd_prefix(const char *filename, const char *interface, struct in6_addr prefix, int prefix_len) {
+    char addr_str[INET6_ADDRSTRLEN];
+    FILE *fp = fopen(filename, "w");
+    if (!fp) {
+        perror("fopen");
+        return -1;
+    }
+
+    if (!inet_ntop(AF_INET6, &prefix, addr_str, sizeof(addr_str))) {
+        perror("inet_ntop");
+        fclose(fp);
+        return -1;
+    }
+
+    fprintf(fp,
+        "interface %s {\n"
+        "    AdvSendAdvert on;\n"
+        "    prefix %s/%d {\n"
+        "        AdvOnLink on;\n"
+        "        AdvAutonomous on;\n"
+        "    };\n"
+        "};\n",
+        interface, addr_str, prefix_len);
+
+    fclose(fp);
+    return 0;
+}
+
 int get_mac_address(const char *iface_name, uint8_t mac[6]) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     valid_socket(sock);

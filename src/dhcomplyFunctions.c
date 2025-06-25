@@ -723,6 +723,20 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                     request->option_list[option_index].ia_pd_t.t1 |= (packet[index + (8 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                     request->option_list[option_index].ia_pd_t.t2 |= (packet[index + (12 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
+
+                option_index++;
+                
+                for (int byte = START_POINT_IN_READING_ADDRESS; byte > -1; byte--) {
+                    prefix <<= ONE_BYTE_SHIFT;
+                    prefix |= packet[index + 38 + (START_POINT_IN_READING_ADDRESS - byte)];
+                }
+
+                request->option_list[option_index].ia_prefix_t.ipv6_prefix = prefix;
+
+                struct in6_addr prefix;
+                inet_pton(AF_INET6, "2001:db8:abcd:1::", &prefix);
+                write_radvd_prefix("/etc/radvd.conf", iface, prefix, packet[index + 37]);
+
                 break;
 
             case DNS_SERVERS_OPTION_CODE: {
