@@ -536,7 +536,7 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
     for (int i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
-        if (opt->option_code == 0 && opt->option_length == 0) continue; // end
+        if (opt->option_code == 0 && opt->option_length == 0) continue;
 
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
@@ -574,7 +574,7 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 int offset_na_3 = offset + 8;
                 for (int octet = 3; octet > -1; octet--) {
                     buffer[offset++] = (opt->ia_na_t.iaid >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset_na_2++] = (opt->ia_na_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK; 
+                    buffer[offset_na_2++] = (opt->ia_na_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                     buffer[offset_na_3++] = (opt->ia_na_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                 }
                 offset = offset_na_3;
@@ -601,7 +601,7 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 int offset_pd_3 = offset + 8;
                 for (int octet = 3; octet > -1; octet--) {
                     buffer[offset++] = (opt->ia_pd_t.iaid >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset_pd_2++] = (opt->ia_pd_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK; 
+                    buffer[offset_pd_2++] = (opt->ia_pd_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                     buffer[offset_pd_3++] = (opt->ia_pd_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                 }
                 offset = offset_pd_3;
@@ -610,13 +610,16 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
             case IAPREFIX_OPTION_CODE:
             
                 for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_prefix_t.preferred_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset++] = (opt->ia_prefix_t.valid_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+                    buffer[offset++] = (opt->ia_address_t.preferred_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+                }
+
+                for (int octet = 3; octet > -1; octet--) {
+                    buffer[offset++] = (opt->ia_address_t.valid_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                 }
 
                 buffer[offset++] = opt->ia_prefix_t.prefix_length;
 
-                for (int hextet = 120; hextet >= 0; hextet--) {
+                for (int hextet = 120; hextet > -1; hextet -= 8) {
                     buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> hextet) & ONE_BYTE_MASK;
                 }
                 break;
@@ -746,26 +749,38 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                 }
 
                 char cmd24[strlen(cumulative_string2) + strlen(iface) + 30];
-                sprintf(cmd24, "sudo resolvectl dns %s %s", iface, cumulative_string2);
+                sprintf(cmd24, "sudo resolvectl dns %s %s\n", iface, cumulative_string2);
                 system(cmd24);
-
                 break;
             }
 
             case DOMAIN_SEARCH_LIST_OPTION_CODE: {
                 char domain_search_list[option_length + 1];
+                strcpy(domain_search_list, "");
 
-                for (int character = 0; character < option_length; character++) {
-                    if (!packet[4 + character]) {
-                        char cmd_23[strlen(domain_search_list) + strlen(iface) + 25];
-                        sprintf(cmd_23, "sudo resolvectl domain %s %s\n", iface, address_string);
-                        system(cmd_23);
-                        strcpy(domain_search_list, EMPTY_STRING);
+                for (int character = 1; character < option_length; character++) {
+                    if (packet[index + character + 4] < 16 && !packet[index + (character - 1) + 4]) {
+                        continue;
+                    } else if (!packet[index + character + 4]) {
+                        if (character + 1 == option_length) {
+                            break;
+                        }
+                        strcat(domain_search_list, " ");
                     } else {
-                        strcat(domain_search_list, packet[index + 4 + character]);
+                        char fakeString[2];
+                        if (packet[index + character + 4] > 15) {
+                            fakeString[0] = packet[index + character + 4];
+                        } else {
+                            fakeString[0] = '.';
+                        }
+                        fakeString[1] = '\0';
+                        strcat(domain_search_list, fakeString);
                     }
                 }
 
+                char cmd_23[strlen(domain_search_list) + strlen(iface) + 25];
+                sprintf(cmd_23, "sudo resolvectl domain %s %s\n", iface, domain_search_list);
+                system(cmd_23);
                 break;
             }
 
