@@ -352,7 +352,24 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
                 break;
             case CLIENT_ID_OPTION_CODE:
-               advertise_message->option_list[option_index].client_id_t.duid = solicit->option_list[option_index].client_id_t.duid;
+                advertise_message->option_list[option_index].client_id_t.duid.hw_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                advertise_message->option_list[option_index].client_id_t.duid.hw_type = packet[index + 5] & ONE_BYTE_MASK;
+
+                advertise_message->option_list[option_index].client_id_t.duid.duid_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                advertise_message->option_list[option_index].client_id_t.duid.duid_type = packet[index + 7] & ONE_BYTE_MASK;
+                
+                advertise_message->option_list[option_index].client_id_t.duid.mac = (uint8_t *)calloc(option_length, sizeof(uint8_t));
+                valid_memory_allocation(advertise_message->option_list[option_index].client_id_t.duid.mac);
+                for (int x = 0; x < MAC_ADDRESS_LENGTH; x++) {
+                    advertise_message->option_list[option_index].client_id_t.duid.mac[x] = packet[index + (x + 8)];
+                }
+
+                for (int x = 0; x < MAC_ADDRESS_LENGTH; x++) {
+                    if (advertise_message->option_list[option_index].client_id_t.duid.mac[x] != advertise_message->option_list[option_index].client_id_t.duid.mac[x]) {
+                        exit(-1);
+                    }
+                }
+
                 break;
             case IA_NA_OPTION_CODE:
                 for (int byte = 3; byte > -1; byte--) {
@@ -666,35 +683,38 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     return 0;
 }
 
-int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
+int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, int size) {
 
     if (valid_transaction_id(packet[1], packet[2], packet[3]) != request->transaction_id) {
         return -1;
     }
 
-    request->option_count = request->option_count - 3;
+    dhcpv6_message_t *reply = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
+    valid_memory_allocation(reply);
 
-    request->option_list = (dhcpv6_option_t *)calloc(request->option_count, sizeof(dhcpv6_option_t));
-    valid_memory_allocation(request->option_list);
+    reply->option_count = get_option_count(packet, size);
+
+    reply->option_list = (dhcpv6_option_t *)calloc(reply->option_count, sizeof(dhcpv6_option_t));
+    valid_memory_allocation(reply->option_list);
 
     int index = 4;
     int option_index = 0;
-    for (int i = 0; i < request->option_count; i++) {
-        uint16_t option_code = request->option_list[option_index].option_code = packet[index] << 8 | packet[index + 1];
-        uint16_t option_length = request->option_list[option_index].option_length = packet[index + 2] << 8 | packet[index + 3];
-        request->option_list[option_index].option_code = option_code;
-        request->option_list[option_index].option_length = option_length;
+    for (int i = 0; i < reply->option_count; i++) {
+        uint16_t option_code = reply->option_list[option_index].option_code = packet[index] << 8 | packet[index + 1];
+        uint16_t option_length = reply->option_list[option_index].option_length = packet[index + 2] << 8 | packet[index + 3];
+        reply->option_list[option_index].option_code = option_code;
+        reply->option_list[option_index].option_length = option_length;
         switch (option_code) {
             case IA_NA_OPTION_CODE:
                 for (int byte = 3; byte > -1; byte--) {
-                    request->option_list[option_index].ia_na_t.iaid |= (packet[index + (4 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
-                    request->option_list[option_index].ia_na_t.t1 |= (packet[index + (8 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
-                    request->option_list[option_index].ia_na_t.t2 |= (packet[index + (12 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    reply->option_list[option_index].ia_na_t.iaid |= (packet[index + (4 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    reply->option_list[option_index].ia_na_t.t1 |= (packet[index + (8 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    reply->option_list[option_index].ia_na_t.t2 |= (packet[index + (12 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
 
                 option_index++;
-                request->option_list[option_index].option_code = IA_ADDR_OPTION_CODE;
-                request->option_list[option_index].option_length = 24;
+                reply->option_list[option_index].option_code = IA_ADDR_OPTION_CODE;
+                reply->option_list[option_index].option_length = 24;
 
                 uint128_t address = 0;
                 
@@ -703,25 +723,25 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                     address |= packet[index + 20 + (START_POINT_IN_READING_ADDRESS - byte)];
                 }
 
-                request->option_list[option_index].ia_address_t.ipv6_address = address;
+                reply->option_list[option_index].ia_address_t.ipv6_address = address;
 
                 for (int byte = 3; byte > -1; byte--) {
-                    request->option_list[option_index].ia_address_t.preferred_lifetime |= (packet[index + (36 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
-                    request->option_list[option_index].ia_address_t.valid_lifetime |= (packet[index + (40 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    reply->option_list[option_index].ia_address_t.preferred_lifetime |= (packet[index + (36 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    reply->option_list[option_index].ia_address_t.valid_lifetime |= (packet[index + (40 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
 
                 char cmd[512];
                 char address_string[INET6_ADDRSTRLEN];
                 uint128_to_ipv6_str(address, address_string, sizeof(address_string));
-                sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, request->option_list[option_index].ia_address_t.preferred_lifetime, request->option_list[option_index].ia_address_t.valid_lifetime);
+                sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, reply->option_list[option_index].ia_address_t.preferred_lifetime, reply->option_list[option_index].ia_address_t.valid_lifetime);
                 system(cmd);
 
                 break;
             case IA_PD_OPTION_CODE:
                 for (int byte = 3; byte > -1; byte--) {
-                    request->option_list[option_index].ia_pd_t.iaid |= (packet[index + (4 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
-                    request->option_list[option_index].ia_pd_t.t1 |= (packet[index + (8 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
-                    request->option_list[option_index].ia_pd_t.t2 |= (packet[index + (12 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    reply->option_list[option_index].ia_pd_t.iaid |= (packet[index + (4 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    reply->option_list[option_index].ia_pd_t.t1 |= (packet[index + (8 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    reply->option_list[option_index].ia_pd_t.t2 |= (packet[index + (12 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
 
                 option_index++;
@@ -731,11 +751,7 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
                     prefix |= packet[index + 38 + (START_POINT_IN_READING_ADDRESS - byte)];
                 }
 
-                request->option_list[option_index].ia_prefix_t.ipv6_prefix = prefix;
-
-                struct in6_addr prefix;
-                inet_pton(AF_INET6, "2001:db8:abcd:1::", &prefix);
-                write_radvd_prefix("/etc/radvd.conf", iface, prefix, packet[index + 37]);
+                reply->option_list[option_index].ia_prefix_t.ipv6_prefix = prefix;
 
                 break;
 
@@ -804,6 +820,6 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface) {
         option_index++;
         index += (option_length + 4);
     }
-    request->option_count = option_index - 1;
+    reply->option_count = option_index - 1;
     return 0;
 }

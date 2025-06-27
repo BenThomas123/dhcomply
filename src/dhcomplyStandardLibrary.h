@@ -37,4 +37,3 @@ char *trim(char *);
 void to_uppercase(char *);
 int uint128_to_ipv6_str(__uint128_t, char *, size_t);
 char *append_ipv6_address_if_unique(const char *, const char *);
-int write_radvd_prefix(const char *, const char *, struct in6_addr prefix, int prefix_len);
