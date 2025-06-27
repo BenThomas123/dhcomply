@@ -14,6 +14,7 @@
 #include <sys/select.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include "cJSON.h"
 
 #define MAC_ADDRESS_LENGTH 6
 

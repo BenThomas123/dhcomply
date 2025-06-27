@@ -107,23 +107,62 @@ uint8_t get_option_count (uint8_t *packet, unsigned long int size) {
     return option_count;
 }
 
+int writeLease(IANA_t iana, IAPD_t iapd, const char *iface_name) {
+    cJSON *root = cJSON_CreateObject();
+    cJSON *leases = cJSON_AddArrayToObject(root, "leases");
 
+    if (iana) {
+        cJSON *iana_obj = cJSON_CreateObject();
+        cJSON_AddStringToObject(iana_obj, "type", "IANA");
+        cJSON_AddNumberToObject(iana_obj, "iaid", iana.iaid);
+        cJSON_AddNumberToObject(iana_obj, "t1", iana.t1);
+        cJSON_AddNumberToObject(iana_obj, "t2", iana.t2);
+        cJSON_AddStringToObject(iana_obj, "address", iana.address);
+        cJSON_AddNumberToObject(iana_obj, "valid_lifetime", iana.validlifetime);
+        cJSON_AddNumberToObject(iana_obj, "preferred_lifetime", iana.preferredlifetime);
+        cJSON_AddItemToArray(leases, iana_obj);
+    }
 
+    if (iapd) {
+        cJSON *iapd_obj = cJSON_CreateObject();
+        cJSON_AddStringToObject(iapd_obj, "type", "IAPD");
+        cJSON_AddNumberToObject(iapd_obj, "iaid", iapd.iaid);
+        cJSON_AddNumberToObject(iapd_obj, "t1", iapd.t1);
+        cJSON_AddNumberToObject(iapd_obj, "t2", iapd.t2);
+        cJSON_AddStringToObject(iapd_obj, "prefix", iapd.prefix);
+        cJSON_AddNumberToObject(iapd_obj, "prefix_length", iapd.prefix_length);
+        cJSON_AddNumberToObject(iapd_obj, "valid_lifetime", iapd.validlifetime);
+        cJSON_AddNumberToObject(iapd_obj, "preferred_lifetime", iapd.preferredlifetime);
+        cJSON_AddItemToArray(leases, iapd_obj);
+    }
 
+    char *json_string = cJSON_Print(root);
+    if (!json_string) {
+        fprintf(stderr, "Failed to create JSON string\n");
+        cJSON_Delete(root);
+        return -1;
+    }
 
+    char filename[256];
+    snprintf(filename, sizeof(filename), "/var/lib/dhcp/lease_%s.json", iface_name);
 
+    FILE *f = fopen(filename, "w");
+    if (!f) {
+        perror("fopen");
+        free(json_string);
+        cJSON_Delete(root);
+        return -1;
+    }
+    fputs(json_string, f);
+    fclose(f);
 
+    printf("Lease written to %s\n", filename);
 
+    free(json_string);
+    cJSON_Delete(root);
 
-
-
-
-
-
-
-
-
-
+    return 0;
+}
 
 
 
@@ -697,6 +736,9 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
     reply->option_list = (dhcpv6_option_t *)calloc(reply->option_count, sizeof(dhcpv6_option_t));
     valid_memory_allocation(reply->option_list);
 
+    IANA_t *iana = (IANA_t *)malloc(sizeof(IANA_t));
+    IAPD_t *iapd = (IAPD_t *)malloc(sizeof(IAPD_t));
+
     int index = 4;
     int option_index = 0;
     for (int i = 0; i < reply->option_count; i++) {
@@ -736,6 +778,13 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
                 sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, reply->option_list[option_index].ia_address_t.preferred_lifetime, reply->option_list[option_index].ia_address_t.valid_lifetime);
                 system(cmd);
 
+                iana->address = reply->option_list[option_index].ia_address_t.ipv6_address;
+                iana->iaid = reply->option_list[option_index].ia_na_t.iaid;
+                iana->t1 = reply->option_list[option_index].ia_na_t.t1;
+                iana->t2 = reply->option_list[option_index].ia_na_t.t2;
+                iana->validlifetime = reply->option_list[option_index].ia_address_t.valid_lifetime;
+                iana->preferredlifetime = reply->option_list[option_index].ia_address_t.preferred_lifetime;
+
                 break;
             case IA_PD_OPTION_CODE:
                 for (int byte = 3; byte > -1; byte--) {
@@ -748,10 +797,28 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
                 
                 for (int byte = START_POINT_IN_READING_ADDRESS; byte > -1; byte--) {
                     prefix <<= ONE_BYTE_SHIFT;
-                    prefix |= packet[index + 38 + (START_POINT_IN_READING_ADDRESS - byte)];
+                    prefix |= packet[index + 26 + (START_POINT_IN_READING_ADDRESS - byte)];
                 }
 
                 reply->option_list[option_index].ia_prefix_t.ipv6_prefix = prefix;
+
+                for (int byte = 3; byte > -1; byte--) {
+                    reply->option_list[option_index].ia_address_t.preferred_lifetime |= (packet[index + (20 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                }
+
+                for (int byte = 3; byte > -1; byte--) {
+                    reply->option_list[option_index].ia_address_t.valid_lifetime |= (packet[index + (24 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                }
+
+                reply->option_list[option_index].ia_prefix_t.prefix_length = packet[index + 25];
+
+                iapd->prefix = reply->option_list[option_index].ia_prefix_t.ipv6_prefix;
+                iapd->iaid = reply->option_list[option_index].ia_pd_t.iaid;
+                iapd->t1 = reply->option_list[option_index].ia_pd_t.t1;
+                iapd->t2 = reply->option_list[option_index].ia_pd_t.t2;
+                iapd->validlifetime = reply->option_list[option_index].ia_prefix_t.valid_lifetime;
+                iapd->preferredlifetime = reply->option_list[option_index].ia_prefix_t.preferred_lifetime;
+                iapd->prefix_length = reply->option_list[option_index].ia_prefix_t.prefix_length;
 
                 break;
 
@@ -820,6 +887,6 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
         option_index++;
         index += (option_length + 4);
     }
-    reply->option_count = option_index - 1;
+    writeLease(iana, iapd, iface);
     return 0;
 }

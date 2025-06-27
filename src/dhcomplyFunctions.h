@@ -407,10 +407,35 @@ typedef struct config {
     bool pd;
 } config_t;
 
+typedef struct IANA {
+    uint32_t iaid;
+    uint32_t t1;
+    uint32_t t2;
+    uint128_t *address;
+    uint32_t validlifetime;
+    uint32_t preferredlifetime;
+} IANA_t;
+
+typedef struct IAPD {
+    uint32_t iaid;
+    uint32_t t1;
+    uint32_t t2;
+    uint128_t *prefix;
+    uint8_t prefix_length;
+    uint32_t validlifetime;
+    uint32_t preferredlifetime;
+} IAPD_t;
+
+typedef struct stateless {
+    char *domain_search_list;
+    uint128_t *address_list;
+} stateless_t;
+
 // general functions
 config_t *read_config_file(char *);
 int check_for_message(int, uint8_t *, int);
 uint8_t get_option_count (uint8_t *, unsigned long int);
+int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name);
 
 // Solicit
 dhcpv6_message_t *buildSolicit(config_t *, const char *);
@@ -424,7 +449,7 @@ dhcpv6_message_t *buildRequest(dhcpv6_message_t *, config_t *);
 int sendRequest(dhcpv6_message_t *, int , const char *, uint32_t);
 
 // Reply
-int parseReply(uint8_t *, dhcpv6_message_t *, const char *);
+int parseReply(uint8_t *, dhcpv6_message_t *, const char *, int);
 
 // Renew
 dhcpv6_message_t *buildRenew(config_t *);
