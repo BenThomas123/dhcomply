@@ -107,32 +107,32 @@ uint8_t get_option_count (uint8_t *packet, unsigned long int size) {
     return option_count;
 }
 
-int writeLease(IANA_t iana, IAPD_t iapd, const char *iface_name) {
+int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
     cJSON *root = cJSON_CreateObject();
     cJSON *leases = cJSON_AddArrayToObject(root, "leases");
 
     if (iana) {
         cJSON *iana_obj = cJSON_CreateObject();
         cJSON_AddStringToObject(iana_obj, "type", "IANA");
-        cJSON_AddNumberToObject(iana_obj, "iaid", iana.iaid);
-        cJSON_AddNumberToObject(iana_obj, "t1", iana.t1);
-        cJSON_AddNumberToObject(iana_obj, "t2", iana.t2);
-        cJSON_AddStringToObject(iana_obj, "address", iana.address);
-        cJSON_AddNumberToObject(iana_obj, "valid_lifetime", iana.validlifetime);
-        cJSON_AddNumberToObject(iana_obj, "preferred_lifetime", iana.preferredlifetime);
+        cJSON_AddNumberToObject(iana_obj, "iaid", iana->iaid);
+        cJSON_AddNumberToObject(iana_obj, "t1", iana->t1);
+        cJSON_AddNumberToObject(iana_obj, "t2", iana->t2);
+        cJSON_AddNumberToObject(iana_obj, "address", iana->address);
+        cJSON_AddNumberToObject(iana_obj, "valid_lifetime", iana->validlifetime);
+        cJSON_AddNumberToObject(iana_obj, "preferred_lifetime", iana->preferredlifetime);
         cJSON_AddItemToArray(leases, iana_obj);
     }
 
     if (iapd) {
         cJSON *iapd_obj = cJSON_CreateObject();
         cJSON_AddStringToObject(iapd_obj, "type", "IAPD");
-        cJSON_AddNumberToObject(iapd_obj, "iaid", iapd.iaid);
-        cJSON_AddNumberToObject(iapd_obj, "t1", iapd.t1);
-        cJSON_AddNumberToObject(iapd_obj, "t2", iapd.t2);
-        cJSON_AddStringToObject(iapd_obj, "prefix", iapd.prefix);
-        cJSON_AddNumberToObject(iapd_obj, "prefix_length", iapd.prefix_length);
-        cJSON_AddNumberToObject(iapd_obj, "valid_lifetime", iapd.validlifetime);
-        cJSON_AddNumberToObject(iapd_obj, "preferred_lifetime", iapd.preferredlifetime);
+        cJSON_AddNumberToObject(iapd_obj, "iaid", iapd->iaid);
+        cJSON_AddNumberToObject(iapd_obj, "t1", iapd->t1);
+        cJSON_AddNumberToObject(iapd_obj, "t2", iapd->t2);
+        cJSON_AddNumberToObject(iapd_obj, "prefix", iapd->prefix);
+        cJSON_AddNumberToObject(iapd_obj, "prefix_length", iapd->prefix_length);
+        cJSON_AddNumberToObject(iapd_obj, "valid_lifetime", iapd->validlifetime);
+        cJSON_AddNumberToObject(iapd_obj, "preferred_lifetime", iapd->preferredlifetime);
         cJSON_AddItemToArray(leases, iapd_obj);
     }
 
@@ -363,9 +363,9 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
     advertise_message->message_type = ADVERTISE_MESSAGE_TYPE;
     advertise_message->transaction_id = valid_transaction_id(packet[1], packet[2], packet[3]);
-    advertise_message->option_count = option_count + 1;
+    advertise_message->option_count = option_count;
 
-    advertise_message->option_list = (dhcpv6_option_t *)calloc(advertise_message->option_count, sizeof(dhcpv6_option_t));
+    advertise_message->option_list = (dhcpv6_option_t *)calloc(option_count, sizeof(dhcpv6_option_t));
     valid_memory_allocation(advertise_message->option_list);
 
     int index = 4;
@@ -401,12 +401,6 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
                 valid_memory_allocation(advertise_message->option_list[option_index].client_id_t.duid.mac);
                 for (int x = 0; x < MAC_ADDRESS_LENGTH; x++) {
                     advertise_message->option_list[option_index].client_id_t.duid.mac[x] = packet[index + (x + 8)];
-                }
-
-                for (int x = 0; x < MAC_ADDRESS_LENGTH; x++) {
-                    if (advertise_message->option_list[option_index].client_id_t.duid.mac[x] != advertise_message->option_list[option_index].client_id_t.duid.mac[x]) {
-                        exit(-1);
-                    }
                 }
 
                 break;
@@ -457,7 +451,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
                     advertise_message->option_list[option_index].ia_prefix_t.valid_lifetime |= (packet[index + (24 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
 
-                advertise_message->option_list[option_index].ia_prefix_t.prefix_length |= packet[index + 28];
+                advertise_message->option_list[option_index].ia_prefix_t.prefix_length = packet[index + 28];
 
                 uint128_t prefix = 0;
                 
@@ -749,10 +743,14 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
         switch (option_code) {
             case IA_NA_OPTION_CODE:
                 for (int byte = 3; byte > -1; byte--) {
-                    reply->option_list[option_index].ia_na_t.iaid |= (packet[index + (4 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
-                    reply->option_list[option_index].ia_na_t.t1 |= (packet[index + (8 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
-                    reply->option_list[option_index].ia_na_t.t2 |= (packet[index + (12 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    reply->option_list[option_index].ia_na_t.iaid |= (packet[index + (4 + byte)] << (8 * (3 - byte)));
+                    reply->option_list[option_index].ia_na_t.t1 |= (packet[index + (8 + byte)] << (8 * (3 - byte)));
+                    reply->option_list[option_index].ia_na_t.t2 |= (packet[index + (12 + byte)] << (8 * (3 - byte)));
                 }
+                
+                iana->iaid = reply->option_list[option_index].ia_na_t.iaid;
+                iana->t1 = reply->option_list[option_index].ia_na_t.t1;
+                iana->t2 = reply->option_list[option_index].ia_na_t.t2;
 
                 option_index++;
                 reply->option_list[option_index].option_code = IA_ADDR_OPTION_CODE;
@@ -779,9 +777,6 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
                 system(cmd);
 
                 iana->address = reply->option_list[option_index].ia_address_t.ipv6_address;
-                iana->iaid = reply->option_list[option_index].ia_na_t.iaid;
-                iana->t1 = reply->option_list[option_index].ia_na_t.t1;
-                iana->t2 = reply->option_list[option_index].ia_na_t.t2;
                 iana->validlifetime = reply->option_list[option_index].ia_address_t.valid_lifetime;
                 iana->preferredlifetime = reply->option_list[option_index].ia_address_t.preferred_lifetime;
 
@@ -793,7 +788,13 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
                     reply->option_list[option_index].ia_pd_t.t2 |= (packet[index + (12 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
 
+                iapd->iaid = reply->option_list[option_index].ia_pd_t.iaid;
+                iapd->t1 = reply->option_list[option_index].ia_pd_t.t1;
+                iapd->t2 = reply->option_list[option_index].ia_pd_t.t2;
+
                 option_index++;
+
+                uint128_t prefix = 0;
                 
                 for (int byte = START_POINT_IN_READING_ADDRESS; byte > -1; byte--) {
                     prefix <<= ONE_BYTE_SHIFT;
@@ -810,12 +811,9 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
                     reply->option_list[option_index].ia_address_t.valid_lifetime |= (packet[index + (24 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
 
-                reply->option_list[option_index].ia_prefix_t.prefix_length = packet[index + 25];
+                reply->option_list[option_index].ia_prefix_t.prefix_length = packet[index + 28];
 
                 iapd->prefix = reply->option_list[option_index].ia_prefix_t.ipv6_prefix;
-                iapd->iaid = reply->option_list[option_index].ia_pd_t.iaid;
-                iapd->t1 = reply->option_list[option_index].ia_pd_t.t1;
-                iapd->t2 = reply->option_list[option_index].ia_pd_t.t2;
                 iapd->validlifetime = reply->option_list[option_index].ia_prefix_t.valid_lifetime;
                 iapd->preferredlifetime = reply->option_list[option_index].ia_prefix_t.preferred_lifetime;
                 iapd->prefix_length = reply->option_list[option_index].ia_prefix_t.prefix_length;

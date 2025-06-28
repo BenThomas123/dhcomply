@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
                 uint8_t *reply_packet = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
                 int reply_check = check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
                 if (reply_check) {
-                    parseReply(reply_packet, request, argv[2]);
+                    parseReply(reply_packet, request, argv[2], reply_check);
                     while(1) {}
                 }
                 uint32_t retrans_time_request = lower_request[retransmissionRequest] + (rand() % (upper_request[retransmissionRequest] - lower_request[retransmissionRequest]));

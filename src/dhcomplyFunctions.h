@@ -411,7 +411,7 @@ typedef struct IANA {
     uint32_t iaid;
     uint32_t t1;
     uint32_t t2;
-    uint128_t *address;
+    uint128_t address;
     uint32_t validlifetime;
     uint32_t preferredlifetime;
 } IANA_t;
@@ -420,7 +420,7 @@ typedef struct IAPD {
     uint32_t iaid;
     uint32_t t1;
     uint32_t t2;
-    uint128_t *prefix;
+    uint128_t prefix;
     uint8_t prefix_length;
     uint32_t validlifetime;
     uint32_t preferredlifetime;
