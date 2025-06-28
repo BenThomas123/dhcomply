@@ -98,10 +98,15 @@ uint8_t get_option_count (uint8_t *packet, unsigned long int size) {
     uint8_t option_count = 0;
 
     while (index < size) {
-        uint16_t option_length = packet[index] << ONE_BYTE_SHIFT;
-        option_length |= packet[index + 1];
+        uint16_t option_code = packet[index] << ONE_BYTE_SHIFT;
+        option_code |= packet[index + 1];
+        if (option_code == 5 || option_code == 25) {
+            option_count++;
+        }
+        uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT;
+        option_length |= packet[index + 3];
         option_count++;
-        index += (option_length + 4);
+        index += (option_length + 2);
     }
 
     return option_count;
@@ -143,7 +148,7 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
         return -1;
     }
 
-    char filename[256];
+    char filename[strlen(iface_name) + 35];
     snprintf(filename, sizeof(filename), "/var/lib/dhcp/lease_%s.json", iface_name);
 
     FILE *f = fopen(filename, "w");
@@ -733,6 +738,9 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
     IANA_t *iana = (IANA_t *)malloc(sizeof(IANA_t));
     IAPD_t *iapd = (IAPD_t *)malloc(sizeof(IAPD_t));
 
+    bool ianaFound = false;
+    bool iapdFound = true;
+
     int index = 4;
     int option_index = 0;
     for (int i = 0; i < reply->option_count; i++) {
@@ -742,6 +750,7 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
         reply->option_list[option_index].option_length = option_length;
         switch (option_code) {
             case IA_NA_OPTION_CODE:
+                ianaFound = true;
                 for (int byte = 3; byte > -1; byte--) {
                     reply->option_list[option_index].ia_na_t.iaid |= (packet[index + (4 + byte)] << (8 * (3 - byte)));
                     reply->option_list[option_index].ia_na_t.t1 |= (packet[index + (8 + byte)] << (8 * (3 - byte)));
@@ -782,6 +791,7 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
 
                 break;
             case IA_PD_OPTION_CODE:
+                iapdFound = true;
                 for (int byte = 3; byte > -1; byte--) {
                     reply->option_list[option_index].ia_pd_t.iaid |= (packet[index + (4 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                     reply->option_list[option_index].ia_pd_t.t1 |= (packet[index + (8 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
@@ -793,6 +803,8 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
                 iapd->t2 = reply->option_list[option_index].ia_pd_t.t2;
 
                 option_index++;
+                reply->option_list[option_index].option_code = IAPREFIX_OPTION_CODE;
+                reply->option_list[option_index].option_length = 25;
 
                 uint128_t prefix = 0;
                 
@@ -885,6 +897,14 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
         option_index++;
         index += (option_length + 4);
     }
-    writeLease(iana, iapd, iface);
+    if (ianaFound && !iapdFound) {
+        writeLease(iana, NULL, iface);
+    } else if (!ianaFound && iapdFound) {
+        writeLease(NULL, iapd, iface);
+    } else if (ianaFound && iapdFound) {
+        writeLease(iana, iapd, iface);
+    } else {
+        writeLease(NULL, NULL, iface);
+    }
     return 0;
 }
