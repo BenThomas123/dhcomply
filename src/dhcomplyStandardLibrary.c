@@ -120,6 +120,40 @@ char *append_ipv6_address_if_unique(const char *addr_list, const char *new_addr)
     return result;
 }
 
+char *format_ipv6_prefix(uint8_t prefix_len, uint128_t prefix) {
+    if (prefix_len > 128) return NULL;
+
+    uint8_t cleaned[16];
+
+    // Break 128-bit integer into 16 bytes in big-endian order:
+    for (int i = 0; i < 16; ++i) {
+        cleaned[i] = (prefix >> ((15 - i) * 8)) & 0xFF;
+    }
+
+    // Zero out bits beyond prefix_len
+    if (prefix_len < 128) {
+        int full_bytes = prefix_len / 8;
+        int remaining_bits = prefix_len % 8;
+
+        if (remaining_bits) {
+            uint8_t mask = (0xFF << (8 - remaining_bits)) & 0xFF;
+            cleaned[full_bytes] &= mask;
+            full_bytes++;
+        }
+        for (int i = full_bytes; i < 16; ++i) cleaned[i] = 0;
+    }
+
+    char addr_str[INET6_ADDRSTRLEN];
+    if (!inet_ntop(AF_INET6, cleaned, addr_str, sizeof(addr_str))) return NULL;
+
+    size_t result_len = strlen(addr_str) + 1 + 3 + 1; // address + '/' + prefix_len + '\0'
+    char *result = malloc(result_len);
+    if (!result) return NULL;
+
+    snprintf(result, result_len, "%s/%u", addr_str, prefix_len);
+    return result;
+}
+
 int get_mac_address(const char *iface_name, uint8_t mac[6]) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     valid_socket(sock);

@@ -38,3 +38,4 @@ char *trim(char *);
 void to_uppercase(char *);
 int uint128_to_ipv6_str(__uint128_t, char *, size_t);
 char *append_ipv6_address_if_unique(const char *, const char *);
+char *format_ipv6_prefix(uint8_t prefix_len, uint128_t prefix)
