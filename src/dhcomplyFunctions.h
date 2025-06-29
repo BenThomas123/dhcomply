@@ -268,7 +268,7 @@ static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 67, 82, 83};
 */ 
 /* ================================== */
 #define MILLISECONDS_IN_SECONDS 1000
-#define MAX_PACKET_SIZE 1500
+#define MAX_PACKET_SIZE 2000
 #define ORO_ARRAY_LENGTH 9
 #define OPTION_CODE_LENGTH_IN_ORO 2
 #define EMPTY_STRING ""
@@ -365,7 +365,6 @@ typedef struct {
             uint64_t preferred_lifetime;
             uint64_t valid_lifetime;
             uint8_t prefix_length;
-            union dhcpv6_option *ia_prefix_options;
         } ia_prefix_t;
         struct ia_pd {
             uint32_t iaid;
@@ -411,7 +410,7 @@ typedef struct IANA {
     uint32_t iaid;
     uint32_t t1;
     uint32_t t2;
-    uint128_t address;
+    char * address;
     uint32_t validlifetime;
     uint32_t preferredlifetime;
 } IANA_t;
@@ -420,7 +419,7 @@ typedef struct IAPD {
     uint32_t iaid;
     uint32_t t1;
     uint32_t t2;
-    uint128_t prefix;
+    char * prefix;
     uint8_t prefix_length;
     uint32_t validlifetime;
     uint32_t preferredlifetime;
@@ -434,7 +433,7 @@ typedef struct stateless {
 // general functions
 config_t *read_config_file(char *);
 int check_for_message(int, uint8_t *, int);
-uint8_t get_option_count (uint8_t *, unsigned long int);
+uint8_t get_option_count (uint8_t *, unsigned long int, uint8_t *);
 int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name);
 
 // Solicit

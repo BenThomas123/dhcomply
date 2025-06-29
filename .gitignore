@@ -1,1 +1,2 @@
-*.o
+dhcomply*.o
+c*.o

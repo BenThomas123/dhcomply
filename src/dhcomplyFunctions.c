@@ -93,17 +93,16 @@ uint32_t valid_transaction_id (uint8_t byte1, uint8_t byte2, uint8_t byte3) {
     return trans_id;
 }
 
-uint8_t get_option_count (uint8_t *packet, unsigned long int size) {
+uint8_t get_option_count (uint8_t *packet, unsigned long int size, uint8_t *iaoption_count) {
     long unsigned int index = 4;
     uint8_t option_count = 0;
 
     while (index < size) {
         uint16_t option_code = packet[index] << ONE_BYTE_SHIFT;
         option_code |= packet[index + 1];
-        fprintf(stderr, "option code: %d\n", option_code);
         if (option_code == 3 || option_code == 25) {
-            fprintf(stderr, "here\n");
             option_count++;
+            (*iaoption_count)++;
         }
         uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT;
         option_length |= packet[index + 3];
@@ -121,25 +120,29 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
     if (iana) {
         cJSON *iana_obj = cJSON_CreateObject();
         cJSON_AddStringToObject(iana_obj, "type", "IANA");
-        cJSON_AddNumberToObject(iana_obj, "iaid", iana->iaid);
+        char hexstring[11];
+        sprintf(hexstring, "0x%08X", iana->iaid);
+        cJSON_AddStringToObject(iana_obj, "iaid", hexstring);
         cJSON_AddNumberToObject(iana_obj, "t1", iana->t1);
         cJSON_AddNumberToObject(iana_obj, "t2", iana->t2);
-        cJSON_AddNumberToObject(iana_obj, "address", iana->address);
-        cJSON_AddNumberToObject(iana_obj, "valid_lifetime", iana->validlifetime);
+        cJSON_AddStringToObject(iana_obj, "address", iana->address);
         cJSON_AddNumberToObject(iana_obj, "preferred_lifetime", iana->preferredlifetime);
+        cJSON_AddNumberToObject(iana_obj, "valid_lifetime", iana->validlifetime);
         cJSON_AddItemToArray(leases, iana_obj);
     }
 
     if (iapd) {
         cJSON *iapd_obj = cJSON_CreateObject();
         cJSON_AddStringToObject(iapd_obj, "type", "IAPD");
-        cJSON_AddNumberToObject(iapd_obj, "iaid", iapd->iaid);
+        char hexstring2[11];
+        sprintf(hexstring2, "0x%08X", iapd->iaid);
+        cJSON_AddStringToObject(iapd_obj, "iaid", hexstring2);
         cJSON_AddNumberToObject(iapd_obj, "t1", iapd->t1);
         cJSON_AddNumberToObject(iapd_obj, "t2", iapd->t2);
-        cJSON_AddNumberToObject(iapd_obj, "prefix", iapd->prefix);
+        //cJSON_AddNumberToObject(iapd_obj, "prefix", iapd->prefix);
         cJSON_AddNumberToObject(iapd_obj, "prefix_length", iapd->prefix_length);
-        cJSON_AddNumberToObject(iapd_obj, "valid_lifetime", iapd->validlifetime);
         cJSON_AddNumberToObject(iapd_obj, "preferred_lifetime", iapd->preferredlifetime);
+        cJSON_AddNumberToObject(iapd_obj, "valid_lifetime", iapd->validlifetime);
         cJSON_AddItemToArray(leases, iapd_obj);
     }
 
@@ -170,8 +173,6 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
 
     return 0;
 }
-
-
 
 dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     size_t option_count = 2;
@@ -267,7 +268,7 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     if (!message || sockfd < 0) exit(-1);
 
     uint8_t buffer[MAX_PACKET_SIZE];
-    uint8_t offset = 0;
+    uint16_t offset = 0;
 
     // Header
     buffer[offset++] = message->message_type;
@@ -304,7 +305,6 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 break;
 
             case ORO_OPTION_CODE:
-                // Ensure ORO is present and valid
                 for (int byte = 0; byte < opt->option_length / OPTION_CODE_LENGTH_IN_ORO; byte++) {
                     buffer[offset++] = (opt->option_request_t.option_request[byte] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                     buffer[offset++] = opt->option_request_t.option_request[byte] & ONE_BYTE_MASK;
@@ -366,7 +366,8 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
         return NULL;
     }
 
-    uint8_t option_count = get_option_count(packet, size);
+    uint8_t ia_option_count = 0;
+    uint8_t option_count = get_option_count(packet, size, &ia_option_count);
 
     advertise_message->message_type = ADVERTISE_MESSAGE_TYPE;
     advertise_message->transaction_id = valid_transaction_id(packet[1], packet[2], packet[3]);
@@ -377,7 +378,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
     int index = 4;
     int option_index = 0;
-    for (int i = 0; i < option_count - 2; i++) {
+    for (int i = 0; i < option_count - ia_option_count; i++) {
         uint16_t option_code = advertise_message->option_list[option_index].option_code = packet[index] << 8 | packet[index + 1];
         uint16_t option_length = advertise_message->option_list[option_index].option_length = packet[index + 2] << 8 | packet[index + 3];
         advertise_message->option_list[option_index].option_code = option_code;
@@ -459,16 +460,14 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
                 }
 
                 advertise_message->option_list[option_index].ia_prefix_t.prefix_length = packet[index + 28];
-
                 uint128_t prefix = 0;
                 
-                for (int byte = START_POINT_IN_READING_ADDRESS; byte > -1; byte--) {
+                for (int byte = 15; byte > 0; byte--) {
                     prefix <<= ONE_BYTE_SHIFT;
                     prefix |= packet[index + 29 + (START_POINT_IN_READING_ADDRESS - byte)];
                 }
 
                 advertise_message->option_list[option_index].ia_prefix_t.ipv6_prefix = prefix;
-
                 break;
             case RECONF_ACCEPT_OPTION_CODE:
                 break;
@@ -583,7 +582,7 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     if (!message || sockfd < 0) exit(-1);
 
     uint8_t buffer[MAX_PACKET_SIZE];
-    uint8_t offset = 0;
+    uint16_t offset = 0;
 
     // Header
     buffer[offset++] = REQUEST_MESSAGE_TYPE;
@@ -591,24 +590,22 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     buffer[offset++] = (message->transaction_id >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
     buffer[offset++] = message->transaction_id & ONE_BYTE_MASK;
 
-    fprintf(stderr, "sending request...");
     for (int i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
         if (opt->option_code == 0 && opt->option_length == 0) continue;
 
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
-        fprintf(stderr, "option code: %d\n", opt->option_code);
 
         buffer[offset++] = (opt->option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_length & ONE_BYTE_MASK;
         switch (opt->option_code) {
             case CLIENT_ID_OPTION_CODE:
-                buffer[offset++] = (opt->client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                buffer[offset++] = opt->client_id_t.duid.duid_type & ONE_BYTE_MASK;
-
                 buffer[offset++] = (opt->client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 buffer[offset++] = opt->client_id_t.duid.hw_type & ONE_BYTE_MASK;
+
+                buffer[offset++] = (opt->client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->client_id_t.duid.duid_type & ONE_BYTE_MASK;
 
                 for (int i = 0; i < MAC_ADDRESS_LENGTH; i++)
                     buffer[offset++] = opt->client_id_t.duid.mac[i] & ONE_BYTE_MASK;
@@ -647,6 +644,7 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
                 for (int octet = 3; octet > -1; octet--) {
                     buffer[offset++] = (opt->ia_address_t.preferred_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+
                 }
 
                 for (int octet = 3; octet > -1; octet--) {
@@ -667,22 +665,21 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 break;
                 
             case IAPREFIX_OPTION_CODE:
-            
                 for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_address_t.preferred_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+                    buffer[offset++] = (opt->ia_prefix_t.preferred_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                 }
 
                 for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_address_t.valid_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
+                    buffer[offset++] = (opt->ia_prefix_t.valid_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                 }
 
                 buffer[offset++] = opt->ia_prefix_t.prefix_length;
 
-                for (int hextet = 120; hextet > -1; hextet -= 8) {
-                    buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> hextet) & ONE_BYTE_MASK;
+                for (int octet = 120; octet > -1; octet -= 8) {
+                    buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> octet) & ONE_BYTE_MASK;
                 }
                 break;
-
+            
             case ELAPSED_TIME_OPTION_CODE:
                 buffer[offset++] = (elapsed_time >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 buffer[offset++] = elapsed_time & ONE_BYTE_MASK;
@@ -712,6 +709,7 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 break;
         }
     }
+
     struct sockaddr_in6 dest = {0};
     dest.sin6_family = AF_INET6;
     dest.sin6_port = htons(DHCP_SERVER_PORT);
@@ -733,7 +731,9 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
     dhcpv6_message_t *reply = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
     valid_memory_allocation(reply);
 
-    reply->option_count = get_option_count(packet, size);
+    // we need to declare iaoption_count here to prevent a syntax error
+    uint8_t iaoption_count = 0;
+    reply->option_count = get_option_count(packet, size, &iaoption_count);
 
     reply->option_list = (dhcpv6_option_t *)calloc(reply->option_count, sizeof(dhcpv6_option_t));
     valid_memory_allocation(reply->option_list);
@@ -742,7 +742,7 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
     IAPD_t *iapd = (IAPD_t *)malloc(sizeof(IAPD_t));
 
     bool ianaFound = false;
-    bool iapdFound = true;
+    bool iapdFound = false;
 
     int index = 4;
     int option_index = 0;
@@ -788,7 +788,9 @@ int parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, in
                 sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, reply->option_list[option_index].ia_address_t.preferred_lifetime, reply->option_list[option_index].ia_address_t.valid_lifetime);
                 system(cmd);
 
-                iana->address = reply->option_list[option_index].ia_address_t.ipv6_address;
+                char str[28];
+                strcpy(str, address_string);
+                iana->address = str;
                 iana->validlifetime = reply->option_list[option_index].ia_address_t.valid_lifetime;
                 iana->preferredlifetime = reply->option_list[option_index].ia_address_t.preferred_lifetime;
 
