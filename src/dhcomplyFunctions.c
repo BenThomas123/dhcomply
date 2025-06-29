@@ -121,7 +121,7 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
         cJSON *iana_obj = cJSON_CreateObject();
         cJSON_AddStringToObject(iana_obj, "type", "IANA");
         char hexstring[11];
-        sprintf(hexstring, "0x%08X", iana->iaid);
+        sprintf(hexstring, "%08X", iana->iaid);
         cJSON_AddStringToObject(iana_obj, "iaid", hexstring);
         cJSON_AddNumberToObject(iana_obj, "t1", iana->t1);
         cJSON_AddNumberToObject(iana_obj, "t2", iana->t2);
@@ -135,7 +135,7 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
         cJSON *iapd_obj = cJSON_CreateObject();
         cJSON_AddStringToObject(iapd_obj, "type", "IAPD");
         char hexstring2[11];
-        sprintf(hexstring2, "0x%08X", iapd->iaid);
+        sprintf(hexstring2, "%08X", iapd->iaid);
         cJSON_AddStringToObject(iapd_obj, "iaid", hexstring2);
         cJSON_AddNumberToObject(iapd_obj, "t1", iapd->t1);
         cJSON_AddNumberToObject(iapd_obj, "t2", iapd->t2);
