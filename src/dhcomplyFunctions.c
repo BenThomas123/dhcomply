@@ -94,19 +94,21 @@ uint32_t valid_transaction_id (uint8_t byte1, uint8_t byte2, uint8_t byte3) {
 }
 
 uint8_t get_option_count (uint8_t *packet, unsigned long int size) {
-    long unsigned int index = 6;
+    long unsigned int index = 4;
     uint8_t option_count = 0;
 
     while (index < size) {
         uint16_t option_code = packet[index] << ONE_BYTE_SHIFT;
         option_code |= packet[index + 1];
-        if (option_code == 5 || option_code == 25) {
+        fprintf(stderr, "option code: %d\n", option_code);
+        if (option_code == 3 || option_code == 25) {
+            fprintf(stderr, "here\n");
             option_count++;
         }
         uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT;
         option_length |= packet[index + 3];
         option_count++;
-        index += (option_length + 2);
+        index += (option_length + 4);
     }
 
     return option_count;
@@ -375,7 +377,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
     int index = 4;
     int option_index = 0;
-    for (int i = 0; i < advertise_message->option_count; i++) {
+    for (int i = 0; i < option_count - 2; i++) {
         uint16_t option_code = advertise_message->option_list[option_index].option_code = packet[index] << 8 | packet[index + 1];
         uint16_t option_length = advertise_message->option_list[option_index].option_length = packet[index + 2] << 8 | packet[index + 3];
         advertise_message->option_list[option_index].option_code = option_code;
@@ -500,7 +502,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 }
 
 dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *config) {
-    uint8_t option_count = advertisement->option_count - 1;
+    uint8_t option_count = advertisement->option_count;
 
    dhcpv6_message_t *request = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
    valid_memory_allocation(request);
@@ -508,11 +510,11 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
     request->message_type = REQUEST_MESSAGE_TYPE;
     request->transaction_id = rand() & THREE_BYTE_MASK;
 
-    request->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
+    request->option_list = calloc(option_count + 2, sizeof(dhcpv6_option_t));
     valid_memory_allocation(request->option_list);
 
     size_t index = 0;
-    for (uint8_t i = 0; i < option_count; i++) {
+    for (int i = 0; i < option_count; i++) {
         dhcpv6_option_t *opt = &advertisement->option_list[i];
         uint16_t option_code = opt->option_code;
         uint16_t option_length = opt->option_length;
@@ -589,12 +591,14 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     buffer[offset++] = (message->transaction_id >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
     buffer[offset++] = message->transaction_id & ONE_BYTE_MASK;
 
+    fprintf(stderr, "sending request...");
     for (int i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
         if (opt->option_code == 0 && opt->option_length == 0) continue;
 
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
+        fprintf(stderr, "option code: %d\n", opt->option_code);
 
         buffer[offset++] = (opt->option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_length & ONE_BYTE_MASK;
@@ -613,7 +617,7 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
             case SERVER_ID_OPTION_CODE:
                 buffer[offset++] = (opt->server_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                buffer[offset++] = opt->client_id_t.duid.duid_type & ONE_BYTE_MASK;
+                buffer[offset++] = opt->server_id_t.duid.duid_type & ONE_BYTE_MASK;
 
                 buffer[offset++] = (opt->server_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 buffer[offset++] = opt->server_id_t.duid.hw_type & ONE_BYTE_MASK;
@@ -687,7 +691,6 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
             case ORO_OPTION_CODE:
                 for (int byte = 0; byte < opt->option_length / OPTION_CODE_LENGTH_IN_ORO; byte++) {
                     buffer[offset++] = (opt->option_request_t.option_request[byte] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                    
                     buffer[offset++] = opt->option_request_t.option_request[byte] & ONE_BYTE_MASK;
                 }
                 break;
