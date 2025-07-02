@@ -32,8 +32,33 @@ int main(int argc, char *argv[])
                 uint8_t *reply_packet = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
                 int reply_check = check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
                 if (reply_check) {
-                    parseReply(reply_packet, request, argv[2], reply_check);
-                    while(1) {}
+                    dhcpv6_message_t * reply_message = parseReply(reply_packet, request, argv[2], reply_check);
+                    if (!reply_message) {
+                        continue;
+                    } else {
+                        while (true) {
+                            time_t startRenew = time(NULL);
+                            int t1 =  min(reply_message->option_list->ia_na_t.t1, reply_message->option_list->ia_pd_t.t1);
+                            dhcpv6_message_t * renew = buildRenew(reply_message, config_file);
+                            while (difftime(time(NULL), startRenew) < t1){
+                                // waiting for declines, releases, reconfigures, confirms
+                            }
+                            sendRenew(renew, sockfd, argv[2], elapse_time)
+
+                            int retransmissionRenew = 0;
+                            elapse_time = 0;
+                            
+                            int t2 =  min(reply_message->option_list->ia_na_t.t2, reply_message->option_list->ia_pd_t.t2);
+                            int maxRenewRetransmissions = renewsAllowed(t2 - t1);
+                            while (retransmissionRenew < maxRenewRetransmissions) {
+                                uint32_t retrans_time_renew = renew_lower[retransmissionRenew] + (rand() % (renew_upper[retransmissionRenew] - renew_lower[retransmissionRenew]));
+                                elapse_time += retrans_time_renew;
+                                usleep(retrans_time_renew * MILLISECONDS_IN_SECONDS);
+                                sendRenew(request, sockfd, argv[2], elapse_time / 10);
+                                retransmissionRenew++;
+                            }
+                        }
+                    }
                 }
                 uint32_t retrans_time_request = lower_request[retransmissionRequest] + (rand() % (upper_request[retransmissionRequest] - lower_request[retransmissionRequest]));
                 elapse_time += retrans_time_request;
