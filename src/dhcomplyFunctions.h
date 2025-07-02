@@ -419,7 +419,7 @@ typedef struct IAPD {
     uint32_t iaid;
     uint32_t t1;
     uint32_t t2;
-    char * prefix;
+    uint128_t prefix;
     uint8_t prefix_length;
     uint32_t validlifetime;
     uint32_t preferredlifetime;

@@ -139,7 +139,7 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
         cJSON_AddStringToObject(iapd_obj, "iaid", hexstring2);
         cJSON_AddNumberToObject(iapd_obj, "t1", iapd->t1);
         cJSON_AddNumberToObject(iapd_obj, "t2", iapd->t2);
-        cJSON_AddNumberToObject(iapd_obj, "prefix", format_ipv6_prefix(iapd->prefix_length, iapd->prefix));
+        cJSON_AddStringToObject(iapd_obj, "prefix", format_ipv6_prefix(iapd->prefix_length, iapd->prefix));
         cJSON_AddNumberToObject(iapd_obj, "prefix_length", iapd->prefix_length);
         cJSON_AddNumberToObject(iapd_obj, "preferred_lifetime", iapd->preferredlifetime);
         cJSON_AddNumberToObject(iapd_obj, "valid_lifetime", iapd->validlifetime);
