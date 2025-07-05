@@ -167,3 +167,31 @@ void init_dhcomply() {
 void randomize () {
     srand(time(NULL));
 }
+
+int min (int a, int b) {
+    if (a < b) {
+        return a;
+    }
+
+    return b;
+}
+
+int max (int a, int b) {
+    if (a > b) {
+        return a;
+    }
+
+    return b;
+}
+
+void UserLog (const char *message) {
+
+}
+
+void debugLog (const char *message) {
+
+}
+
+void errorLog (const char *message) {
+
+}

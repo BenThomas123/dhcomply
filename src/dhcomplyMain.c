@@ -37,25 +37,59 @@ int main(int argc, char *argv[])
                         continue;
                     } else {
                         while (true) {
-                            time_t startRenew = time(NULL);
-                            int t1 =  min(reply_message->option_list->ia_na_t.t1, reply_message->option_list->ia_pd_t.t1);
-                            dhcpv6_message_t * renew = buildRenew(reply_message, config_file);
-                            while (difftime(time(NULL), startRenew) < t1){
-                                // waiting for declines, releases, reconfigures, confirms
+                            uint8_t na_index = 0;
+                            uint8_t pd_index = 0;
+                            int t1 = 0;
+                            int t2 = 0;
+                            if (reply_message == NULL) {
+                                fprintf(stderr, "here at NULL");
                             }
-                            sendRenew(renew, sockfd, argv[2], elapse_time)
+                            if (!strcmp("NP", argv[1])) {
+                                na_index = get_option_index(reply_packet, reply_check, IA_NA_OPTION_CODE);
+                                pd_index = get_option_index(reply_packet, reply_check, IA_PD_OPTION_CODE);
+                                t1 = min(reply_message->option_list[na_index].ia_na_t.t1, reply_message->option_list[pd_index].ia_pd_t.t1);
+                                t2 = min(reply_message->option_list[na_index].ia_na_t.t2, reply_message->option_list[pd_index].ia_pd_t.t2);
+                            } else if (!strcmp("N", argv[1])) {
+                                na_index = get_option_index(reply_packet, reply_check, IA_NA_OPTION_CODE);
+                                t1 = reply_message->option_list[na_index].ia_na_t.t1;
+                                t2 = reply_message->option_list[na_index].ia_na_t.t2;
+                            } else {
+                                pd_index = get_option_index(reply_packet, reply_check, IA_PD_OPTION_CODE);
+                                t1 = reply_message->option_list[pd_index].ia_pd_t.t1;
+                                t2 = reply_message->option_list[pd_index].ia_pd_t.t2;
+                            }
+                            
+                            dhcpv6_message_t * renew = buildRenew(reply_message, config_file);
+                            time_t startRenew = time(NULL);
+                            while (time(NULL) - startRenew < t1) {}
+                            // waiting for declines, releases, reconfigures, confirms
+                            sendRenew(renew, sockfd, argv[2], elapse_time);
+                            uint8_t *reply_packet2 = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
+                            int reply_check2 = check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
+                            if (reply_check2) {
+                                reply_message = parseReply(reply_packet2, renew, argv[2], reply_check2);
+                                continue;
+                            }
 
                             int retransmissionRenew = 0;
                             elapse_time = 0;
                             
-                            int t2 =  min(reply_message->option_list->ia_na_t.t2, reply_message->option_list->ia_pd_t.t2);
-                            int maxRenewRetransmissions = renewsAllowed(t2 - t1);
-                            while (retransmissionRenew < maxRenewRetransmissions) {
+                            uint32_t maxRenewRetransmissions = renewsAllowed(t2 - t1);
+                            reply_check = 0;
+                            time_t startRebind = time(NULL);
+                            while (retransmissionRenew < maxRenewRetransmissions && reply_check == 0 && time(NULL) - startRebind < t2 - t1) {
                                 uint32_t retrans_time_renew = renew_lower[retransmissionRenew] + (rand() % (renew_upper[retransmissionRenew] - renew_lower[retransmissionRenew]));
                                 elapse_time += retrans_time_renew;
                                 usleep(retrans_time_renew * MILLISECONDS_IN_SECONDS);
-                                sendRenew(request, sockfd, argv[2], elapse_time / 10);
+                                renew = buildRenew(reply_message, config_file);
+                                sendRenew(renew, sockfd, argv[2], elapse_time / 10);
+                                reply_check = check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
                                 retransmissionRenew++;
+                            }
+                            if (retransmissionRenew == maxRenewRetransmissions) {
+                                break;
+                            } else {
+                                reply_message = parseReply(reply_packet2, renew, argv[2], reply_check);
                             }
                         }
                     }

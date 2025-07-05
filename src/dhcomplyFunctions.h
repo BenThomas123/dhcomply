@@ -433,9 +433,10 @@ typedef struct stateless {
 // general functions
 config_t *read_config_file(char *);
 int check_for_message(int, uint8_t *, int);
-uint8_t get_option_count (uint8_t *, unsigned long int, uint8_t *);
+uint8_t get_option_count(uint8_t *, unsigned long int, uint8_t *);
+int get_option_index(uint8_t *, unsigned long int, uint8_t);
 int writeLease(IANA_t *, IAPD_t *, const char *);
-uint8_t renewsAllowed(int t1minust2);
+uint8_t renewsAllowed(uint32_t t1minust2);
 
 // Solicit
 dhcpv6_message_t *buildSolicit(config_t *, const char *);
@@ -453,7 +454,7 @@ dhcpv6_message_t *parseReply(uint8_t *, dhcpv6_message_t *, const char *, int);
 
 // Renew
 dhcpv6_message_t * buildRenew(dhcpv6_message_t *, config_t *);
-sendRenew(dhcpv6_message_t *, int, const char *, uint32_t);
+int sendRenew(dhcpv6_message_t *, int, const char *, uint32_t);
 
 // Rebind
 dhcpv6_message_t *buildRebind(config_t *);

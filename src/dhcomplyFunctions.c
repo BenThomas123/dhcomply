@@ -113,6 +113,23 @@ uint8_t get_option_count (uint8_t *packet, unsigned long int size, uint8_t *iaop
     return option_count;
 }
 
+int get_option_index(uint8_t *packet, unsigned long int size, uint8_t desired_option_code) {
+    long unsigned int index = 4;
+    uint8_t option_index = 0;
+
+    while (index < size) {
+        uint16_t option_code = packet[index] << ONE_BYTE_SHIFT;
+        option_code |= packet[index + 1];
+        if (option_code == desired_option_code) return option_index;
+        uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT;
+        option_length |= packet[index + 3];
+        index += (option_length + 4);
+        option_index++;
+    }
+
+    return -1;
+}
+
 int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
     cJSON *root = cJSON_CreateObject();
     cJSON *leases = cJSON_AddArrayToObject(root, "leases");
@@ -174,19 +191,18 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
     return 0;
 }
 
-uint8_t renewsAllowed(int t1minust2) {
+uint8_t renewsAllowed(uint32_t t1minust2) {
     uint8_t elapsed_time = 0;
     uint8_t index = 0;
-    while (elapsed_time < t1minust2) {
-        if (elapsed_time + renew_upper[index] > t1minust2) {
-            break;
-        }
-        elapsed_time += renew_upper[index];
+    do {
         index++;
-    }
+        elapsed_time += (renew_upper[index] / MILLISECONDS_IN_SECONDS);
+    }while (elapsed_time < t1minust2);
 
-    return index;    
+    return index;
 }
+
+
 
 dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     size_t option_count = 2;
@@ -222,8 +238,7 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
         msg->option_list[index].client_id_t.duid.mac[i] = mac[i];
     }
     index++;
-
-    // ELAPSED_TIME
+   // ELAPSED_TIME
     msg->option_list[index].option_code = ELAPSED_TIME_OPTION_CODE;
     msg->option_list[index].option_length = 2;
     msg->option_list[index].elapsed_time_t.elapsed_time_value = 0;
@@ -628,8 +643,8 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 buffer[offset++] = (opt->client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 buffer[offset++] = opt->client_id_t.duid.duid_type & ONE_BYTE_MASK;
 
-                for (int i = 0; i < MAC_ADDRESS_LENGTH; i++)
-                    buffer[offset++] = opt->client_id_t.duid.mac[i] & ONE_BYTE_MASK;
+                for (int index = 0; index < MAC_ADDRESS_LENGTH; index++)
+                    buffer[offset++] = opt->client_id_t.duid.mac[index] & ONE_BYTE_MASK;
                 
                 break;
 
@@ -745,9 +760,10 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
 dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, int size) {
 
-    if (valid_transaction_id(packet[1], packet[2], packet[3]) != request->transaction_id) {
+    /*if (valid_transaction_id(packet[1], packet[2], packet[3]) != request->transaction_id) {
+        fprintf(stderr, "failing here\n");
         return NULL;
-    }
+    }*/
 
     dhcpv6_message_t *reply = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
     valid_memory_allocation(reply);
@@ -777,6 +793,35 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 uint8_t status_code = packet[index + 6];
                 if (status_code) {
                     return NULL;
+                }
+
+                break;
+
+            case SERVER_ID_OPTION_CODE:
+                reply->option_list[option_index].server_id_t.duid.hw_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                reply->option_list[option_index].server_id_t.duid.hw_type = packet[index + 5] & ONE_BYTE_MASK;
+
+                reply->option_list[option_index].server_id_t.duid.duid_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                reply->option_list[option_index].server_id_t.duid.duid_type = packet[index + 7] & ONE_BYTE_MASK;
+                
+                reply->option_list[option_index].server_id_t.duid.mac = (uint8_t *)calloc(option_length, sizeof(uint8_t));
+                valid_memory_allocation(reply->option_list[option_index].server_id_t.duid.mac);
+                for (int x = 0; x < option_length; x++) {
+                    reply->option_list[option_index].server_id_t.duid.mac[x] = packet[index + (x + 8)];
+                }
+
+                break;
+            case CLIENT_ID_OPTION_CODE:
+                reply->option_list[option_index].client_id_t.duid.hw_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                reply->option_list[option_index].client_id_t.duid.hw_type = packet[index + 5] & ONE_BYTE_MASK;
+
+                reply->option_list[option_index].client_id_t.duid.duid_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                reply->option_list[option_index].client_id_t.duid.duid_type = packet[index + 7] & ONE_BYTE_MASK;
+                
+                reply->option_list[option_index].client_id_t.duid.mac = (uint8_t *)calloc(option_length, sizeof(uint8_t));
+                valid_memory_allocation(reply->option_list[option_index].client_id_t.duid.mac);
+                for (int x = 0; x < MAC_ADDRESS_LENGTH; x++) {
+                    reply->option_list[option_index].client_id_t.duid.mac[x] = packet[index + (x + 8)];
                 }
 
                 break;
@@ -892,6 +937,13 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 char cmd24[strlen(cumulative_string2) + strlen(iface) + 30];
                 sprintf(cmd24, "sudo resolvectl dns %s %s\n", iface, cumulative_string2);
                 system(cmd24);
+
+                reply->option_list[option_index].dns_recursive_name_server_t.dns_servers = (uint8_t *)calloc(option_length, sizeof(uint8_t));
+                valid_memory_allocation(reply->option_list[option_index].dns_recursive_name_server_t.dns_servers);
+                for (int hextet = 0; hextet < option_length; hextet++) {
+                    reply->option_list[option_index].dns_recursive_name_server_t.dns_servers[hextet] = packet[index + 4 + hextet];
+                }
+
                 break;
             }
 
@@ -922,6 +974,14 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 char cmd_23[strlen(domain_search_list) + strlen(iface) + 25];
                 sprintf(cmd_23, "sudo resolvectl domain %s %s\n", iface, domain_search_list);
                 system(cmd_23);
+                
+                char *DSL_string = (char *)calloc(option_length, sizeof(char));
+                valid_memory_allocation(DSL_string);
+                for (int byte = 0; byte < option_length; byte++) {
+                    DSL_string[byte] = packet[index + 4 + byte];
+                }
+                reply->option_list[option_index].domain_search_list_t.search_list = DSL_string;
+                
                 break;
             }
 
@@ -1037,6 +1097,8 @@ int sendRenew(dhcpv6_message_t *message, int sockfd, const char *iface_name, uin
         dhcpv6_option_t *opt = &message->option_list[i];
         if (opt->option_code == 0 && opt->option_length == 0) continue;
 
+        fprintf(stderr, "%d\n", opt->option_code);
+
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
 
@@ -1049,10 +1111,12 @@ int sendRenew(dhcpv6_message_t *message, int sockfd, const char *iface_name, uin
 
                 buffer[offset++] = (opt->client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 buffer[offset++] = opt->client_id_t.duid.duid_type & ONE_BYTE_MASK;
+                        
+                    
+                for (int index = 0; index < MAC_ADDRESS_LENGTH; index++) {
+                    buffer[offset++] = opt->client_id_t.duid.mac[index] & ONE_BYTE_MASK;
+                }
 
-                for (int i = 0; i < MAC_ADDRESS_LENGTH; i++)
-                    buffer[offset++] = opt->client_id_t.duid.mac[i] & ONE_BYTE_MASK;
-                
                 break;
 
             case SERVER_ID_OPTION_CODE:
