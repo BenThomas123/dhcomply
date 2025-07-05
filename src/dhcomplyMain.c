@@ -41,9 +41,6 @@ int main(int argc, char *argv[])
                             uint8_t pd_index = 0;
                             int t1 = 0;
                             int t2 = 0;
-                            if (reply_message == NULL) {
-                                fprintf(stderr, "here at NULL");
-                            }
                             if (!strcmp("NP", argv[1])) {
                                 na_index = get_option_index(reply_packet, reply_check, IA_NA_OPTION_CODE);
                                 pd_index = get_option_index(reply_packet, reply_check, IA_PD_OPTION_CODE);
@@ -61,7 +58,9 @@ int main(int argc, char *argv[])
                             
                             dhcpv6_message_t * renew = buildRenew(reply_message, config_file);
                             time_t startRenew = time(NULL);
-                            while (time(NULL) - startRenew < t1) {}
+                            while (time(NULL) - startRenew < t1) {
+                                
+                            }
                             // waiting for declines, releases, reconfigures, confirms
                             sendRenew(renew, sockfd, argv[2], elapse_time);
                             uint8_t *reply_packet2 = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
@@ -87,13 +86,37 @@ int main(int argc, char *argv[])
                                 retransmissionRenew++;
                             }
                             if (retransmissionRenew == maxRenewRetransmissions) {
-                                break;
+                                int retransmissionRebind = 0;
+                                elapse_time = 0;
+
+
+                                dhcpv6_message_t * rebind = buildRebind(reply_message, config_file);
+                                sendRebind(rebind, sockfd, argv[2], 0);
+
+                                reply_check = 0;
+                                while (retransmissionRebind < REBIND_RETRANS_COUNT && reply_check == 0) {
+                                    uint32_t retrans_time_renew = renew_lower[retransmissionRenew] + (rand() % (renew_upper[retransmissionRenew] - renew_lower[retransmissionRenew]));
+                                    elapse_time += retrans_time_renew;
+                                    usleep(retrans_time_renew * MILLISECONDS_IN_SECONDS);
+                                    sendRebind(rebind, sockfd, argv[2], elapse_time / 10);
+                                    reply_check = check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
+                                    retransmissionRebind++;
+                                }
+
+                                if (retransmissionRebind == REBIND_RETRANS_COUNT) {
+                                    break;
+                                } else {
+                                    reply_message = parseReply(reply_packet2, rebind, argv[2], reply_check);
+                                }
+
                             } else {
                                 reply_message = parseReply(reply_packet2, renew, argv[2], reply_check);
                             }
                         }
                     }
                 }
+                retransmissionRequest = 0;
+                elapse_time = 0;
                 uint32_t retrans_time_request = lower_request[retransmissionRequest] + (rand() % (upper_request[retransmissionRequest] - lower_request[retransmissionRequest]));
                 elapse_time += retrans_time_request;
                 usleep(retrans_time_request * MILLISECONDS_IN_SECONDS);
