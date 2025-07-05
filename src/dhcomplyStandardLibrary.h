@@ -15,6 +15,8 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <cjson/cJSON.h>
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
 
 #define MAC_ADDRESS_LENGTH 6
 
