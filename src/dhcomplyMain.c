@@ -60,11 +60,7 @@ int main(int argc, char *argv[])
                             time_t startRenew = time(NULL);
                             uint8_t *reply_packet2 = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
 
-                            bool NA_check = false;
-                            uint8_t *NA = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
-                            bool NA_check = check_for_neighbor_advertisement(sockfd);
-
-                            if (NA_check) {
+                            if (!accepted) {
                                 dhcpv6_message_t *decline = buildDecline(reply_message, config_file);
                                 sendDecline(reply_packet2, decline, argv[2], reply_check);
                                 int reply_check = check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);

@@ -894,7 +894,6 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 char address_string[INET6_ADDRSTRLEN];
                 uint128_to_ipv6_str(address, address_string, sizeof(address_string));
                 sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, reply->option_list[option_index].ia_address_t.preferred_lifetime, reply->option_list[option_index].ia_address_t.valid_lifetime);
-                system(cmd);
 
                 char str[28];
                 strcpy(str, address_string);

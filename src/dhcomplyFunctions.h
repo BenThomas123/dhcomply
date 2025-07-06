@@ -1,5 +1,8 @@
 #include "dhcomplyStandardLibrary.h"
 
+
+extern int accepted;
+
 // Retransmission constants
 /* ================================================= */
 #define SOLICIT_RETRANS_COUNT 14
