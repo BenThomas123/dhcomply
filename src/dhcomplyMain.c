@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
                             if (!accepted) {
                                 dhcpv6_message_t *decline = buildDecline(reply_message, config_file);
-                                sendDecline(reply_packet2, decline, argv[2], reply_check);
+                                sendDecline(decline, sockfd, argv[2], 0);
                                 int reply_check = check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
 
                                 elapse_time = 0;
@@ -77,6 +77,7 @@ int main(int argc, char *argv[])
                                     declineRetransmission++;
                                 }
                                 if (reply_check) {
+                                    reply_message = parseReply(reply_packet2, decline, argv[2], reply_check);
                                     break;
                                 }
                             }
