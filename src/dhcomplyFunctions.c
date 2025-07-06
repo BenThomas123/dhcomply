@@ -29,7 +29,7 @@ config_t *read_config_file(char *iaString) {
             config_file->reconfigure = 5;
         }
         else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_REBIND, line)) {
-            config_file->reconfigure = 6;            
+            config_file->reconfigure = 6;
         }
         else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_INFO_REQ, line)) {
             config_file->reconfigure = 7;

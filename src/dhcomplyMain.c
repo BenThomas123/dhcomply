@@ -62,9 +62,7 @@ int main(int argc, char *argv[])
 
                             bool NA_check = false;
                             uint8_t *NA = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
-                            while (time(NULL) - startRenew < t1 && !NA_check) {
-                                NA_check = check_for_neighbor_advertisement(sockfd, NA);
-                            }
+                            bool NA_check = check_for_neighbor_advertisement(sockfd);
 
                             if (NA_check) {
                                 dhcpv6_message_t *decline = buildDecline(reply_message, config_file);
@@ -86,6 +84,8 @@ int main(int argc, char *argv[])
                                     break;
                                 }
                             }
+
+                            while (time(NULL) - startRenew < t1) {}
                             // waiting for declines, releases, reconfigures, confirms
                             sendRenew(renew, sockfd, argv[2], 0);
                             int reply_check2 = check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
