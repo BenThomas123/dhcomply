@@ -83,32 +83,21 @@ int check_for_message(int sockfd, uint8_t *packet, int type) {
     return 0;
 }
 
-bool check_for_neighbor_advertisement(int sockfd) {
-    fd_set read_fds;
-    struct timeval timeout;
-    FD_ZERO(&read_fds);
-    FD_SET(sockfd, &read_fds);
+bool check_dad_failure(const char *interface) {
+    char command[256];
+    snprintf(command, sizeof(command), "./scripts/check_dad.sh %s", interface);
+    int status = system(command);
 
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
-
-    int ready = select(sockfd + 1, &read_fds, NULL, NULL, &timeout);
-    if (ready > 0 && FD_ISSET(sockfd, &read_fds)) {
-        uint8_t buffer[MAX_PACKET_SIZE];
-        ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
-        if (len <= 0) return false;
-
-        if (len < (sizeof(struct ip6_hdr) + sizeof(struct icmp6_hdr))) return false;
-
-        struct ip6_hdr *ip6h = (struct ip6_hdr *)buffer;
-        if (ip6h->ip6_nxt != IPPROTO_ICMPV6) return false;
-
-        struct icmp6_hdr *icmp6h = (struct icmp6_hdr *)(buffer + sizeof(struct ip6_hdr));
-        if (icmp6h->icmp6_type == ND_NEIGHBOR_ADVERT && icmp6h->icmp6_code == 0) {
+    if (WIFEXITED(status)) {
+        int code = WEXITSTATUS(status);
+        if (code == 2) {
             return true;
+        } else if (code == 0) {
+            return false;
         }
     }
 
+    fprintf(stderr, "[ERROR] Failed to run DAD check script.\n");
     return false;
 }
 
