@@ -75,7 +75,7 @@ int check_for_message(int sockfd, uint8_t *packet, int type) {
         uint8_t buffer[MAX_PACKET_SIZE];
         ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
         memcpy(packet, buffer, MAX_PACKET_SIZE);
-        if (len > 5 && buffer[0] == type) {
+        if (buffer[0] == type) {
             return len;
         }
     }
@@ -85,7 +85,7 @@ int check_for_message(int sockfd, uint8_t *packet, int type) {
 
 bool check_dad_failure(const char *interface) {
     char command[256];
-    snprintf(command, sizeof(command), "./scripts/check_dad.sh %s", interface);
+    snprintf(command, sizeof(command), "./check_dad.sh %s", interface);
     int status = system(command);
 
     if (WIFEXITED(status)) {

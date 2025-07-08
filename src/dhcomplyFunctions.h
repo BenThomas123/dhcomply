@@ -470,7 +470,7 @@ int sendConfirm(dhcpv6_message_t *, int);
 
 // Decline
 dhcpv6_message_t *buildDecline(dhcpv6_message_t *, config_t *);
- sendDecline(dhcpv6_message_t *, int, const char *, uint32_t);
+int sendDecline(dhcpv6_message_t *, int, const char *, uint32_t);
 
 // Release
 dhcpv6_message_t *buildRelease(config_t *);
