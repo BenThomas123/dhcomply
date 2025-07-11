@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
                                 sendRebind(rebind, sockfd, argv[2], 0);
 
                                 reply_check = 0;
-                                while (retransmissionRebind < REBIND_RETRANS_COUNT && reply_check == 0 && ) {
+                                while (retransmissionRebind < REBIND_RETRANS_COUNT && reply_check == 0) {
                                     uint32_t retrans_time_renew = renew_lower[retransmissionRenew] + (rand() % (renew_upper[retransmissionRenew] - renew_lower[retransmissionRenew]));
                                     elapse_time += retrans_time_renew;
                                     usleep(retrans_time_renew * MILLISECONDS_IN_SECONDS);
@@ -143,7 +143,8 @@ int main(int argc, char *argv[])
 
                                 if (retransmissionRebind == REBIND_RETRANS_COUNT) {
                                     time_t restOfLife = time(NULL);
-                                    while (time(NULL) - restOfLife < valid_lifetime - 19) {}
+                                    while (time(NULL) - restOfLife < valid_lifetime - t2) {}
+                                    goto restart;
                                 } else {
                                     reply_message = parseReply(reply_packet2, rebind, argv[2], reply_check);
                                 }
