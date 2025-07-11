@@ -12,6 +12,9 @@ int main(int argc, char *argv[])
     int sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
     valid_socket(sockfd);
 
+    restart:
+
+
     dhcpv6_message_t *firstSol = buildSolicit(config_file, argv[2]);
     sendSolicit(firstSol, sockfd, argv[2], 0);
 
@@ -41,15 +44,18 @@ int main(int argc, char *argv[])
                             uint8_t pd_index = 0;
                             int t1 = 0;
                             int t2 = 0;
+                            int valid_lifetime = 0;
                             if (!strcmp("NP", argv[1])) {
                                 na_index = get_option_index(reply_packet, reply_check, IA_NA_OPTION_CODE);
                                 pd_index = get_option_index(reply_packet, reply_check, IA_PD_OPTION_CODE);
                                 t1 = min(reply_message->option_list[na_index].ia_na_t.t1, reply_message->option_list[pd_index].ia_pd_t.t1);
                                 t2 = min(reply_message->option_list[na_index].ia_na_t.t2, reply_message->option_list[pd_index].ia_pd_t.t2);
+                                valid_lifetime = reply_message->option_list[na_index + 1].ia_address_t.valid_lifetime;
                             } else if (!strcmp("N", argv[1])) {
                                 na_index = get_option_index(reply_packet, reply_check, IA_NA_OPTION_CODE);
                                 t1 = reply_message->option_list[na_index].ia_na_t.t1;
                                 t2 = reply_message->option_list[na_index].ia_na_t.t2;
+                                valid_lifetime = reply_message->option_list[na_index + 1].ia_address_t.valid_lifetime;
                             } else {
                                 pd_index = get_option_index(reply_packet, reply_check, IA_PD_OPTION_CODE);
                                 t1 = reply_message->option_list[pd_index].ia_pd_t.t1;
@@ -76,14 +82,25 @@ int main(int argc, char *argv[])
                                     reply_check = check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
                                     declineRetransmission++;
                                 }
-                                if (reply_check) {
+                                if (reply_check || valid_lifetime <= 19) {
+                                    if (valid_lifetime > 19) {
+                                        goto restart;
+                                    }
                                     reply_message = parseReply(reply_packet2, decline, argv[2], reply_check);
-                                    break;
                                 }
+                                time_t restOfLife = time(NULL);
+                                while (time(NULL) - restOfLife < valid_lifetime - 19) {}
+
+                                char cmd2[512];
+                                snprintf(cmd2, "chmod +x rm -f /var/lib/dhcp/%s", "");
+                                system(cmd2);
+                                char cmd[512];
+                                snprintf(cmd, "rm -f/var/lib/dhcp/lease_%s.json", argv[2]);
+                                system(cmd);
+                                goto restart;
                             }
 
                             while (time(NULL) - startRenew < t1) {}
-                            // waiting for declines, releases, reconfigures, confirms
                             sendRenew(renew, sockfd, argv[2], 0);
                             int reply_check2 = check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
                             if (reply_check2) {
@@ -115,7 +132,7 @@ int main(int argc, char *argv[])
                                 sendRebind(rebind, sockfd, argv[2], 0);
 
                                 reply_check = 0;
-                                while (retransmissionRebind < REBIND_RETRANS_COUNT && reply_check == 0) {
+                                while (retransmissionRebind < REBIND_RETRANS_COUNT && reply_check == 0 && ) {
                                     uint32_t retrans_time_renew = renew_lower[retransmissionRenew] + (rand() % (renew_upper[retransmissionRenew] - renew_lower[retransmissionRenew]));
                                     elapse_time += retrans_time_renew;
                                     usleep(retrans_time_renew * MILLISECONDS_IN_SECONDS);
@@ -125,7 +142,8 @@ int main(int argc, char *argv[])
                                 }
 
                                 if (retransmissionRebind == REBIND_RETRANS_COUNT) {
-                                    break;
+                                    time_t restOfLife = time(NULL);
+                                    while (time(NULL) - restOfLife < valid_lifetime - 19) {}
                                 } else {
                                     reply_message = parseReply(reply_packet2, rebind, argv[2], reply_check);
                                 }

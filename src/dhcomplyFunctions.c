@@ -1469,7 +1469,7 @@ dhcpv6_message_t * buildDecline(dhcpv6_message_t *reply, config_t *config) {
     valid_memory_allocation(decline->option_list);
 
     size_t index = 0;
-    for (int i = 0; i < option_count; i++) {
+    for (int i = 0; i < 6; i++) {
         dhcpv6_option_t *opt = &reply->option_list[i];
         uint16_t option_code = opt->option_code;
         uint16_t option_length = opt->option_length;
@@ -1498,14 +1498,6 @@ dhcpv6_message_t * buildDecline(dhcpv6_message_t *reply, config_t *config) {
 
             case IAPREFIX_OPTION_CODE:
                 decline->option_list[index].ia_prefix_t = reply->option_list[i].ia_prefix_t;
-                break;
-
-            case DNS_SERVERS_OPTION_CODE:
-                decline->option_list[index].dns_recursive_name_server_t = reply->option_list[i].dns_recursive_name_server_t;
-                break;
-
-            case DOMAIN_SEARCH_LIST_OPTION_CODE:
-                decline->option_list[index].domain_search_list_t.search_list = reply->option_list[i].domain_search_list_t.search_list;
                 break;
 
             default:
@@ -1648,19 +1640,6 @@ int sendDecline(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                     buffer[offset++] = (opt->option_request_t.option_request[byte] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                     buffer[offset++] = opt->option_request_t.option_request[byte] & ONE_BYTE_MASK;
                 }
-                break;
-            
-            case DNS_SERVERS_OPTION_CODE:
-                for (int byte = 0; byte < opt->option_length; byte++) {
-                    buffer[offset++] = opt->dns_recursive_name_server_t.dns_servers[byte];
-                }
-                break;
-
-            case DOMAIN_SEARCH_LIST_OPTION_CODE:
-                for (int byte = 0; byte < opt->option_length; byte++) {
-                    buffer[offset++] = opt->domain_search_list_t.search_list[byte];
-                }
-
                 break;
 
             default:
