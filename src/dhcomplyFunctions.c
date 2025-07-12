@@ -74,7 +74,8 @@ int check_for_message(int sockfd, uint8_t *packet, int type) {
     if (ready > 0 && FD_ISSET(sockfd, &read_fds)) {
         uint8_t buffer[MAX_PACKET_SIZE];
         ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
-        memcpy(packet, buffer, MAX_PACKET_SIZE);
+        memcpy(packet, buffer, len);
+        fprintf(stderr, "%d\n", buffer[0]);
         if (buffer[0] == type) {
             return len;
         }
@@ -210,12 +211,12 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
 }
 
 uint8_t renewsAllowed(uint32_t t1minust2) {
-    uint8_t elapsed_time = 0;
     uint8_t index = 0;
-    do {
+    uint8_t elapsed_time = renew_upper[index] / MILLISECONDS_IN_SECONDS;
+    while (elapsed_time < t1minust2) {
         index++;
         elapsed_time += (renew_upper[index] / MILLISECONDS_IN_SECONDS);
-    }while (elapsed_time < t1minust2);
+    } 
 
     return index;
 }
@@ -1469,7 +1470,7 @@ dhcpv6_message_t * buildDecline(dhcpv6_message_t *reply, config_t *config) {
     valid_memory_allocation(decline->option_list);
 
     size_t index = 0;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < decline->option_count; i++) {
         dhcpv6_option_t *opt = &reply->option_list[i];
         uint16_t option_code = opt->option_code;
         uint16_t option_length = opt->option_length;
@@ -1490,14 +1491,6 @@ dhcpv6_message_t * buildDecline(dhcpv6_message_t *reply, config_t *config) {
 
             case IA_ADDR_OPTION_CODE:
                 decline->option_list[index].ia_address_t = reply->option_list[i].ia_address_t;
-                break;
-
-            case IA_PD_OPTION_CODE:
-                decline->option_list[index].ia_pd_t = reply->option_list[i].ia_pd_t;
-                break;
-
-            case IAPREFIX_OPTION_CODE:
-                decline->option_list[index].ia_prefix_t = reply->option_list[i].ia_prefix_t;
                 break;
 
             default:
@@ -1603,33 +1596,6 @@ int sendDecline(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
                 break;
 
-            case IA_PD_OPTION_CODE:
-                int offset_pd_2 = offset + 4;
-                int offset_pd_3 = offset + 8;
-                for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_pd_t.iaid >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset_pd_2++] = (opt->ia_pd_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset_pd_3++] = (opt->ia_pd_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                }
-                offset = offset_pd_3;
-                break;
-                
-            case IAPREFIX_OPTION_CODE:
-                for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_prefix_t.preferred_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                }
-
-                for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_prefix_t.valid_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                }
-
-                buffer[offset++] = opt->ia_prefix_t.prefix_length;
-
-                for (int octet = 120; octet > -1; octet -= 8) {
-                    buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> octet) & ONE_BYTE_MASK;
-                }
-                break;
-            
             case ELAPSED_TIME_OPTION_CODE:
                 buffer[offset++] = (elapsed_time >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 buffer[offset++] = elapsed_time & ONE_BYTE_MASK;
