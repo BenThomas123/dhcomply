@@ -40,7 +40,6 @@ int main(int argc, char *argv[])
                         continue;
                     } else {
                         while (true) {
-                            fprintf(stderr, "here\n");
                             time_t startLease = time(NULL);
                             uint8_t na_index = 0;
                             uint8_t pd_index = 0;
@@ -67,7 +66,7 @@ int main(int argc, char *argv[])
                             dhcpv6_message_t * renew = buildRenew(reply_message, config_file);
                             uint8_t *reply_packet2 = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
 
-                            if (!check_dad_failure(argv[2])) {
+                            if (check_dad_failure(argv[2])) {
                                 dhcpv6_message_t *decline = buildDecline(reply_message, config_file);
                                 sendDecline(decline, sockfd, argv[2], 0);
                                 int reply_check = check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);

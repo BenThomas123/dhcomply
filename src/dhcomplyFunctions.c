@@ -440,6 +440,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
             case SERVER_ID_OPTION_CODE:
                 advertise_message->option_list[option_index].server_id_t.duid.hw_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 advertise_message->option_list[option_index].server_id_t.duid.hw_type = packet[index + 5] & ONE_BYTE_MASK;
+                
 
                 advertise_message->option_list[option_index].server_id_t.duid.duid_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 advertise_message->option_list[option_index].server_id_t.duid.duid_type = packet[index + 7] & ONE_BYTE_MASK;
@@ -452,16 +453,27 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
                 break;
             case CLIENT_ID_OPTION_CODE:
-                advertise_message->option_list[option_index].client_id_t.duid.hw_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                advertise_message->option_list[option_index].client_id_t.duid.hw_type = packet[index + 5] & ONE_BYTE_MASK;
+                advertise_message->option_list[option_index].client_id_t.duid.duid_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                advertise_message->option_list[option_index].client_id_t.duid.duid_type = packet[index + 5] & ONE_BYTE_MASK;
 
-                advertise_message->option_list[option_index].client_id_t.duid.duid_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                advertise_message->option_list[option_index].client_id_t.duid.duid_type = packet[index + 7] & ONE_BYTE_MASK;
-                
+                if (advertise_message->option_list[option_index].client_id_t.duid.duid_type != solicit->option_list[option_index].client_id_t.duid.duid_type) {
+                    return NULL;
+                }
+
+                advertise_message->option_list[option_index].client_id_t.duid.hw_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                advertise_message->option_list[option_index].client_id_t.duid.hw_type = packet[index + 7] & ONE_BYTE_MASK;
+        
+                if (advertise_message->option_list[option_index].client_id_t.duid.hw_type != solicit->option_list[option_index].client_id_t.duid.hw_type) {
+                    return NULL;
+                }
+
                 advertise_message->option_list[option_index].client_id_t.duid.mac = (uint8_t *)calloc(option_length, sizeof(uint8_t));
                 valid_memory_allocation(advertise_message->option_list[option_index].client_id_t.duid.mac);
                 for (int x = 0; x < MAC_ADDRESS_LENGTH; x++) {
                     advertise_message->option_list[option_index].client_id_t.duid.mac[x] = packet[index + (x + 8)];
+                    if (advertise_message->option_list[option_index].client_id_t.duid.mac[x] != solicit->option_list[option_index].client_id_t.duid.mac[x]) {
+                        return NULL;
+                    }
                 }
 
                 break;
@@ -778,7 +790,6 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, int size) {
 
     if (valid_transaction_id(packet[1], packet[2], packet[3]) != request->transaction_id) {
-        fprintf(stderr, "failing here\n");
         return NULL;
     }
 
@@ -832,13 +843,24 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 reply->option_list[option_index].client_id_t.duid.hw_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 reply->option_list[option_index].client_id_t.duid.hw_type = packet[index + 5] & ONE_BYTE_MASK;
 
+                if (reply->option_list[option_index].client_id_t.duid.hw_type != request->option_list[option_index].client_id_t.duid.hw_type) {
+                    return NULL;
+                }
+
                 reply->option_list[option_index].client_id_t.duid.duid_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 reply->option_list[option_index].client_id_t.duid.duid_type = packet[index + 7] & ONE_BYTE_MASK;
-                
+
+                if (reply->option_list[option_index].client_id_t.duid.duid_type != request->option_list[option_index].client_id_t.duid.duid_type) {
+                    return NULL;
+                }
+
                 reply->option_list[option_index].client_id_t.duid.mac = (uint8_t *)calloc(option_length, sizeof(uint8_t));
                 valid_memory_allocation(reply->option_list[option_index].client_id_t.duid.mac);
                 for (int x = 0; x < MAC_ADDRESS_LENGTH; x++) {
                     reply->option_list[option_index].client_id_t.duid.mac[x] = packet[index + (x + 8)];
+                    if (reply->option_list[option_index].client_id_t.duid.mac[x] != request->option_list[option_index].client_id_t.duid.mac[x]) {
+                        return NULL;
+                    }
                 }
 
                 break;
