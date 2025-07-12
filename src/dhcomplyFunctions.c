@@ -75,7 +75,6 @@ int check_for_message(int sockfd, uint8_t *packet, int type) {
         uint8_t buffer[MAX_PACKET_SIZE];
         ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
         memcpy(packet, buffer, len);
-        fprintf(stderr, "%d\n", buffer[0]);
         if (buffer[0] == type) {
             return len;
         }
@@ -1458,7 +1457,7 @@ int sendRebind(dhcpv6_message_t *message, int sockfd, const char *iface_name, ui
 }
 
 dhcpv6_message_t * buildDecline(dhcpv6_message_t *reply, config_t *config) {
-    uint8_t option_count = reply->option_count;
+    uint8_t option_count = 6;
 
    dhcpv6_message_t *decline = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
    valid_memory_allocation(decline);
@@ -1466,31 +1465,41 @@ dhcpv6_message_t * buildDecline(dhcpv6_message_t *reply, config_t *config) {
     decline->message_type = DECLINE_MESSAGE_TYPE;
     decline->transaction_id = rand() & THREE_BYTE_MASK;
 
-    decline->option_list = calloc(option_count + 2, sizeof(dhcpv6_option_t));
+    decline->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
     valid_memory_allocation(decline->option_list);
 
     size_t index = 0;
-    for (int i = 0; i < decline->option_count; i++) {
+    for (int i = 0; i < reply->option_count; i++) {
         dhcpv6_option_t *opt = &reply->option_list[i];
         uint16_t option_code = opt->option_code;
         uint16_t option_length = opt->option_length;
-        decline->option_list[index].option_code = option_code;
-        decline->option_list[index].option_length = option_length;
         switch (opt->option_code) {
             case CLIENT_ID_OPTION_CODE:
+                decline->option_list[index].option_code = option_code;
+                decline->option_list[index].option_length = option_length;
                 decline->option_list[index].client_id_t = reply->option_list[i].client_id_t;
+                index++;
                 break;
 
             case SERVER_ID_OPTION_CODE:
+                decline->option_list[index].option_code = option_code;
+                decline->option_list[index].option_length = option_length;    
                 decline->option_list[index].server_id_t = reply->option_list[i].server_id_t;
+                index++;
                 break;
 
             case IA_NA_OPTION_CODE:
+                decline->option_list[index].option_code = option_code;
+                decline->option_list[index].option_length = option_length;                  
                 decline->option_list[index].ia_na_t = reply->option_list[i].ia_na_t;
+                index++;
                 break;
 
             case IA_ADDR_OPTION_CODE:
+                decline->option_list[index].option_code = option_code;
+                decline->option_list[index].option_length = option_length;      
                 decline->option_list[index].ia_address_t = reply->option_list[i].ia_address_t;
+                index++;
                 break;
 
             default:

@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
                         continue;
                     } else {
                         while (true) {
-                            fprintf(stderr, "here");
+                            fprintf(stderr, "here\n");
                             time_t startLease = time(NULL);
                             uint8_t na_index = 0;
                             uint8_t pd_index = 0;
@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
                             dhcpv6_message_t * renew = buildRenew(reply_message, config_file);
                             uint8_t *reply_packet2 = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
 
-                            if (check_dad_failure(argv[2])) {
+                            if (!check_dad_failure(argv[2])) {
                                 dhcpv6_message_t *decline = buildDecline(reply_message, config_file);
                                 sendDecline(decline, sockfd, argv[2], 0);
                                 int reply_check = check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
                                 dhcpv6_message_t * rebind = buildRebind(reply_message, config_file);
                                 sendRebind(rebind, sockfd, argv[2], 0);
 
-                                reply_check = 0;
+                                reply_check = check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
                                 while (retransmissionRebind < REBIND_RETRANS_COUNT && reply_check == 0 && time(NULL) - startLease < valid_lifetime) {
                                     uint32_t retrans_time_rebind = rebind_lower[retransmissionRenew] + (rand() % (rebind_upper[retransmissionRenew] - rebind_lower[retransmissionRenew]));
                                     elapse_time += retrans_time_rebind;
@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
                                     retransmissionRebind++;
                                 }
 
-                                if (time(NULL) - startLease >= valid_lifetime) {
+                                if (!reply_check) {
                                     char cmd2[512];
                                     snprintf(cmd2, "chmod +x rm -f /var/lib/dhcp/%s", "");
                                     system(cmd2);
@@ -161,6 +161,7 @@ int main(int argc, char *argv[])
                                     goto restart;
                                 } else {
                                     reply_message = parseReply(reply_packet2, rebind, argv[2], reply_check);
+                                    continue;
                                 }
                             } else {
                                 reply_message = parseReply(reply_packet2, renew, argv[2], reply_check);
