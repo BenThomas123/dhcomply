@@ -26,6 +26,16 @@ typedef unsigned int uint32_t;
 typedef unsigned long uint64_t;
 typedef __uint128_t uint128_t;
 
+typedef struct LinkedListNode {
+    void *data;
+    struct LinkedListNode *next;
+} LinkedListNode;
+
+typedef struct LinkedList {
+    LinkedListNode *head;
+    size_t size;
+} LinkedList;
+
 void valid_file_pointer(FILE *);
 void valid_memory_allocation(void *);
 void valid_socket(int);

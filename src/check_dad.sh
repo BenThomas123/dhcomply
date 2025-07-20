@@ -14,6 +14,5 @@ if ip a show dev "$INTERFACE" | grep -q "dadfailed"; then
     echo "DAD failed on interface $INTERFACE"
     exit 2
 else
-    echo "DAD succeeded or not yet complete on interface $INTERFACE"
     exit 0
 fi

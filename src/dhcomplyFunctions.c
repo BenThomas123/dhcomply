@@ -97,7 +97,6 @@ bool check_dad_failure(const char *interface) {
         }
     }
 
-    fprintf(stderr, "[ERROR] Failed to run DAD check script.\n");
     return false;
 }
 
@@ -111,14 +110,14 @@ uint32_t valid_transaction_id (uint8_t byte1, uint8_t byte2, uint8_t byte3) {
     return trans_id;
 }
 
-uint8_t get_option_count (uint8_t *packet, unsigned long int size, uint8_t *iaoption_count) {
+uint8_t get_option_count(uint8_t *packet, unsigned long int size, uint8_t *iaoption_count) {
     long unsigned int index = 4;
     uint8_t option_count = 0;
 
     while (index < size) {
         uint16_t option_code = packet[index] << ONE_BYTE_SHIFT;
         option_code |= packet[index + 1];
-        if (option_code == 3 || option_code == 25) {
+        if (option_code == IA_NA_OPTION_CODE|| option_code == IA_PD_OPTION_CODE) {
             option_count++;
             (*iaoption_count)++;
         }
@@ -183,7 +182,6 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
 
     char *json_string = cJSON_Print(root);
     if (!json_string) {
-        fprintf(stderr, "Failed to create JSON string\n");
         cJSON_Delete(root);
         return -1;
     }
@@ -200,8 +198,6 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
     }
     fputs(json_string, f);
     fclose(f);
-
-    printf("Lease written to %s\n", filename);
 
     free(json_string);
     cJSON_Delete(root);
@@ -408,8 +404,10 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
     dhcpv6_message_t *advertise_message = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
     valid_memory_allocation(advertise_message);
 
+    bool badAdvertisement = false;
+    advertise_message->valid = true;
     if (valid_transaction_id(packet[1], packet[2], packet[3]) != solicit->transaction_id) {
-        return NULL;
+        badAdvertisement = true;
     }
 
     uint8_t ia_option_count = 0;
@@ -424,6 +422,8 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
     int index = 4;
     int option_index = 0;
+
+    int all_valid_options_included_counter = 0;
     for (int i = 0; i < option_count - ia_option_count; i++) {
         uint16_t option_code = advertise_message->option_list[option_index].option_code = packet[index] << 8 | packet[index + 1];
         uint16_t option_length = advertise_message->option_list[option_index].option_length = packet[index + 2] << 8 | packet[index + 3];
@@ -431,13 +431,14 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
         advertise_message->option_list[option_index].option_length = option_length;
         switch (option_code) {
             case STATUS_CODE_OPTION_CODE:
-                uint8_t status_code = packet[index + 6];
+                uint8_t status_code = packet[index + 5];
                 if (status_code) {
-                    return NULL;
+                    badAdvertisement = true;
                 }
 
                 break;
             case SERVER_ID_OPTION_CODE:
+                all_valid_options_included_counter += SERVER_ID_OPTION_CODE;
                 advertise_message->option_list[option_index].server_id_t.duid.hw_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 advertise_message->option_list[option_index].server_id_t.duid.hw_type = packet[index + 5] & ONE_BYTE_MASK;
                 
@@ -453,18 +454,19 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
                 break;
             case CLIENT_ID_OPTION_CODE:
+                all_valid_options_included_counter += CLIENT_ID_OPTION_CODE;
                 advertise_message->option_list[option_index].client_id_t.duid.duid_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 advertise_message->option_list[option_index].client_id_t.duid.duid_type = packet[index + 5] & ONE_BYTE_MASK;
-
+                
                 if (advertise_message->option_list[option_index].client_id_t.duid.duid_type != solicit->option_list[option_index].client_id_t.duid.duid_type) {
-                    return NULL;
+                    badAdvertisement = true;
                 }
 
                 advertise_message->option_list[option_index].client_id_t.duid.hw_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 advertise_message->option_list[option_index].client_id_t.duid.hw_type = packet[index + 7] & ONE_BYTE_MASK;
         
                 if (advertise_message->option_list[option_index].client_id_t.duid.hw_type != solicit->option_list[option_index].client_id_t.duid.hw_type) {
-                    return NULL;
+                    badAdvertisement = true;
                 }
 
                 advertise_message->option_list[option_index].client_id_t.duid.mac = (uint8_t *)calloc(option_length, sizeof(uint8_t));
@@ -472,12 +474,13 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
                 for (int x = 0; x < MAC_ADDRESS_LENGTH; x++) {
                     advertise_message->option_list[option_index].client_id_t.duid.mac[x] = packet[index + (x + 8)];
                     if (advertise_message->option_list[option_index].client_id_t.duid.mac[x] != solicit->option_list[option_index].client_id_t.duid.mac[x]) {
-                        return NULL;
+                        badAdvertisement = true;
                     }
                 }
 
                 break;
             case IA_NA_OPTION_CODE:
+                all_valid_options_included_counter += IA_NA_OPTION_CODE;
                 for (int byte = 3; byte > -1; byte--) {
                     advertise_message->option_list[option_index].ia_na_t.iaid |= (packet[index + (4 + byte)] << (8 * (3 - byte)));
                     advertise_message->option_list[option_index].ia_na_t.t1 |= (packet[index + (8 + byte)] << (8 * (3 - byte)));
@@ -487,6 +490,15 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
                 option_index++;
                 advertise_message->option_list[option_index].option_code |= (packet[index + 16] << ONE_BYTE_SHIFT);
                 advertise_message->option_list[option_index].option_code |= packet[index + 17];
+                if (advertise_message->option_list[option_index].option_code == STATUS_CODE_OPTION_CODE) {
+                    int status_code = 0;
+                    status_code |= (packet[index + 20] << ONE_BYTE_SHIFT);
+                    status_code |= packet[index + 21];
+
+                    if (status_code) {
+                        badAdvertisement = true;
+                    }
+                }
 
                 advertise_message->option_list[option_index].option_length |= (packet[index + 18] << ONE_BYTE_SHIFT);
                 advertise_message->option_list[option_index].option_length |= packet[index + 19];
@@ -498,6 +510,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
                     address |= packet[index + 20 + (START_POINT_IN_READING_ADDRESS - byte)];
                 }
 
+                all_valid_options_included_counter += IA_ADDR_OPTION_CODE;
                 advertise_message->option_list[option_index].ia_address_t.ipv6_address = address;
 
                 for (int byte = 3; byte > -1; byte--) {
@@ -507,6 +520,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
                 break;
             case IA_PD_OPTION_CODE:
+                all_valid_options_included_counter += IA_PD_OPTION_CODE;
                 for (int byte = 3; byte > -1; byte--) {
                     advertise_message->option_list[option_index].ia_pd_t.iaid |= (packet[index + (4 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                     advertise_message->option_list[option_index].ia_pd_t.t1 |= (packet[index + (8 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
@@ -518,6 +532,18 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
                 advertise_message->option_list[option_index].option_code |= packet[index + 17];
                 advertise_message->option_list[option_index].option_length |= (packet[index + 18] << ONE_BYTE_SHIFT);
                 advertise_message->option_list[option_index].option_length |= packet[index + 19];
+
+                if (advertise_message->option_list[option_index].option_code == STATUS_CODE_OPTION_CODE) {
+                    int status_code = 0;
+                    status_code |= (packet[index + 20] << ONE_BYTE_SHIFT);
+                    status_code |= packet[index + 21];
+
+                    if (status_code) {
+                        badAdvertisement = true;
+                    }
+                }
+
+                all_valid_options_included_counter += IAPREFIX_OPTION_CODE;
 
                 for (int byte = 3; byte > -1; byte--) {
                     advertise_message->option_list[option_index].ia_prefix_t.preferred_lifetime |= (packet[index + (20 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
@@ -555,12 +581,34 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
                 advertise_message->option_list[option_index].domain_search_list_t.search_list = DSL_string;
 
                 break;
+
+            case SOL_MAX_RT_OPTION_CODE: {
+                uint32_t sol_max_rt = 0;
+                for (int b = 0; b < 4; b++) {
+                    sol_max_rt <<= ONE_BYTE_SHIFT;
+                    sol_max_rt |= packet[index + 4 + b];
+                }
+                advertise_message->option_list[option_index].SOL_MAX_RT_t.SOL_MAX_RT_value = sol_max_rt;
+                break;
+            }
+
             default:
                 break;
         }
         option_index++;
         index += (option_length + 4);
     }
+    if (all_valid_options_included_counter != 11 &&
+        all_valid_options_included_counter != 54 &&
+        all_valid_options_included_counter != 62) {
+        badAdvertisement = true;
+    }
+    if (badAdvertisement) {
+        advertise_message->valid = false;
+    } else {
+        advertise_message->valid = true;
+    }
+
     advertise_message->option_count = option_index;
     return advertise_message;
 }
@@ -617,6 +665,10 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
                 request->option_list[index].domain_search_list_t.search_list = advertisement->option_list[i].domain_search_list_t.search_list;
                 break;
 
+            case SOL_MAX_RT_OPTION_CODE:
+                request->option_list[index].SOL_MAX_RT_t.SOL_MAX_RT_value = advertisement->option_list[i].SOL_MAX_RT_t.SOL_MAX_RT_value;
+                break;
+
             default:
                 break;
         }
@@ -666,11 +718,11 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
         buffer[offset++] =  opt->option_length & ONE_BYTE_MASK;
         switch (opt->option_code) {
             case CLIENT_ID_OPTION_CODE:
-                buffer[offset++] = (opt->client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                buffer[offset++] = opt->client_id_t.duid.hw_type & ONE_BYTE_MASK;
-
                 buffer[offset++] = (opt->client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 buffer[offset++] = opt->client_id_t.duid.duid_type & ONE_BYTE_MASK;
+
+                buffer[offset++] = (opt->client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->client_id_t.duid.hw_type & ONE_BYTE_MASK;
 
                 for (int index = 0; index < MAC_ADDRESS_LENGTH; index++)
                     buffer[offset++] = opt->client_id_t.duid.mac[index] & ONE_BYTE_MASK;
@@ -770,6 +822,12 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
                 break;
 
+            case SOL_MAX_RT_OPTION_CODE:
+                for (int b = 3; b >= 0; b--) {
+                    buffer[offset++] = (opt->SOL_MAX_RT_t.SOL_MAX_RT_value >> (8 * b)) & ONE_BYTE_MASK;
+                }
+                break;
+
             default:
                 break;
         }
@@ -789,8 +847,9 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
 dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const char *iface, int size) {
 
+    bool badReply = false;
     if (valid_transaction_id(packet[1], packet[2], packet[3]) != request->transaction_id) {
-        return NULL;
+        badReply = true;
     }
 
     dhcpv6_message_t *reply = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
@@ -811,6 +870,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
     int index = 4;
     int option_index = 0;
+    int options_included_total = 0;
     for (int i = 0; i < reply->option_count; i++) {
         uint16_t option_code = reply->option_list[option_index].option_code = packet[index] << 8 | packet[index + 1];
         uint16_t option_length = reply->option_list[option_index].option_length = packet[index + 2] << 8 | packet[index + 3];
@@ -818,14 +878,15 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
         reply->option_list[option_index].option_length = option_length;
         switch (option_code) {
             case STATUS_CODE_OPTION_CODE:
-                uint8_t status_code = packet[index + 6];
+                uint8_t status_code = packet[index + 5];
                 if (status_code) {
-                    return NULL;
+                    badReply = true;
                 }
 
                 break;
 
             case SERVER_ID_OPTION_CODE:
+                options_included_total += SERVER_ID_OPTION_CODE;
                 reply->option_list[option_index].server_id_t.duid.hw_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 reply->option_list[option_index].server_id_t.duid.hw_type = packet[index + 5] & ONE_BYTE_MASK;
 
@@ -840,18 +901,19 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 break;
             case CLIENT_ID_OPTION_CODE:
-                reply->option_list[option_index].client_id_t.duid.hw_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                reply->option_list[option_index].client_id_t.duid.hw_type = packet[index + 5] & ONE_BYTE_MASK;
-
-                if (reply->option_list[option_index].client_id_t.duid.hw_type != request->option_list[option_index].client_id_t.duid.hw_type) {
-                    return NULL;
-                }
-
-                reply->option_list[option_index].client_id_t.duid.duid_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                reply->option_list[option_index].client_id_t.duid.duid_type = packet[index + 7] & ONE_BYTE_MASK;
+                options_included_total += CLIENT_ID_OPTION_CODE;
+                reply->option_list[option_index].client_id_t.duid.duid_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                reply->option_list[option_index].client_id_t.duid.duid_type = packet[index + 5] & ONE_BYTE_MASK;
 
                 if (reply->option_list[option_index].client_id_t.duid.duid_type != request->option_list[option_index].client_id_t.duid.duid_type) {
-                    return NULL;
+                    badReply = true;
+                }
+                
+                reply->option_list[option_index].client_id_t.duid.hw_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                reply->option_list[option_index].client_id_t.duid.hw_type = packet[index + 7] & ONE_BYTE_MASK;
+
+                if (reply->option_list[option_index].client_id_t.duid.hw_type != request->option_list[option_index].client_id_t.duid.hw_type) {
+                    badReply = true;
                 }
 
                 reply->option_list[option_index].client_id_t.duid.mac = (uint8_t *)calloc(option_length, sizeof(uint8_t));
@@ -859,13 +921,14 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 for (int x = 0; x < MAC_ADDRESS_LENGTH; x++) {
                     reply->option_list[option_index].client_id_t.duid.mac[x] = packet[index + (x + 8)];
                     if (reply->option_list[option_index].client_id_t.duid.mac[x] != request->option_list[option_index].client_id_t.duid.mac[x]) {
-                        return NULL;
+                        badReply = true;
                     }
                 }
 
                 break;
 
             case IA_NA_OPTION_CODE:
+                options_included_total += IA_NA_OPTION_CODE;
                 ianaFound = true;
                 for (int byte = 3; byte > -1; byte--) {
                     reply->option_list[option_index].ia_na_t.iaid |= (packet[index + (4 + byte)] << (8 * (3 - byte)));
@@ -878,7 +941,19 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 iana->t2 = reply->option_list[option_index].ia_na_t.t2;
 
                 option_index++;
-                reply->option_list[option_index].option_code = IA_ADDR_OPTION_CODE;
+                reply->option_list[option_index].option_code = packet[index + 17];
+                if (reply->option_list[option_index].option_code == STATUS_CODE_OPTION_CODE) {
+                    int status_code = 0;
+                    status_code |= (packet[index + 20] << ONE_BYTE_SHIFT);
+                    status_code |= packet[index + 21];
+
+                    if (status_code) {
+                        badReply = true;
+                    }
+                }
+
+                options_included_total += IA_ADDR_OPTION_CODE;
+
                 reply->option_list[option_index].option_length = 24;
 
                 uint128_t address = 0;
@@ -895,6 +970,12 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                     reply->option_list[option_index].ia_address_t.valid_lifetime |= (packet[index + (40 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
 
+                if (request->option_list[option_index].ia_address_t.ipv6_address !=
+                    reply->option_list[option_index].ia_address_t.ipv6_address &&
+                    request->message_type != REQUEST_MESSAGE_TYPE) {
+                    badReply = true;
+                }
+
                 char cmd2[512];
                 char address_string2[INET6_ADDRSTRLEN];
                 uint128_to_ipv6_str(address, address_string2, sizeof(address_string2));
@@ -905,7 +986,8 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 char address_string[INET6_ADDRSTRLEN];
                 uint128_to_ipv6_str(address, address_string, sizeof(address_string));
                 sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, reply->option_list[option_index].ia_address_t.preferred_lifetime, reply->option_list[option_index].ia_address_t.valid_lifetime);
-
+                system(cmd);
+                
                 char str[28];
                 strcpy(str, address_string);
                 iana->address = str;
@@ -914,6 +996,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 break;
             case IA_PD_OPTION_CODE:
+               options_included_total += IA_PD_OPTION_CODE;
                 iapdFound = true;
                 for (int byte = 3; byte > -1; byte--) {
                     reply->option_list[option_index].ia_pd_t.iaid |= (packet[index + (4 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
@@ -926,14 +1009,25 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 iapd->t2 = reply->option_list[option_index].ia_pd_t.t2;
 
                 option_index++;
-                reply->option_list[option_index].option_code = IAPREFIX_OPTION_CODE;
+                options_included_total += IAPREFIX_OPTION_CODE;
+                reply->option_list[option_index].option_code = packet[index + 17];
+                if (reply->option_list[option_index].option_code == STATUS_CODE_OPTION_CODE) {
+                    int status_code = 0;
+                    status_code |= (packet[index + 20] << ONE_BYTE_SHIFT);
+                    status_code |= packet[index + 21];
+
+                    if (status_code) {
+                        badReply = true;
+                    }
+                }
+
                 reply->option_list[option_index].option_length = 25;
 
                 uint128_t prefix = 0;
                 
                 for (int byte = START_POINT_IN_READING_ADDRESS; byte > -1; byte--) {
                     prefix <<= ONE_BYTE_SHIFT;
-                    prefix |= packet[index + 26 + (START_POINT_IN_READING_ADDRESS - byte)];
+                    prefix |= packet[index + 29 + (START_POINT_IN_READING_ADDRESS - byte)];
                 }
 
                 reply->option_list[option_index].ia_prefix_t.ipv6_prefix = prefix;
@@ -947,6 +1041,12 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 }
 
                 reply->option_list[option_index].ia_prefix_t.prefix_length = packet[index + 28];
+
+                if (request->option_list[option_index].ia_prefix_t.ipv6_prefix != 
+                    reply->option_list[option_index].ia_prefix_t.ipv6_prefix
+                    && request->message_type != REQUEST_MESSAGE_TYPE) {
+                    badReply = true;
+                }
 
                 iapd->prefix = reply->option_list[option_index].ia_prefix_t.ipv6_prefix;
                 iapd->validlifetime = reply->option_list[option_index].ia_prefix_t.valid_lifetime;
@@ -1029,12 +1129,28 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 break;
             }
 
+            case SOL_MAX_RT_OPTION_CODE: {
+                uint32_t sol_max_rt = 0;
+                for (int b = 0; b < 4; b++) {
+                    sol_max_rt <<= ONE_BYTE_SHIFT;
+                    sol_max_rt |= packet[index + 4 + b];
+                }
+                reply->option_list[option_index].SOL_MAX_RT_t.SOL_MAX_RT_value = sol_max_rt;
+                break;
+            }
+
             default:
                 break;
         }
         option_index++;
         index += (option_length + 4);
     }
+    if (options_included_total != 11 &&
+        options_included_total != 54 &&
+        options_included_total != 62) {
+        badReply= true;
+    }
+    reply->valid = !badReply;
     if (ianaFound && !iapdFound) {
         writeLease(iana, NULL, iface);
     } else if (!ianaFound && iapdFound) {
@@ -1148,13 +1264,12 @@ int sendRenew(dhcpv6_message_t *message, int sockfd, const char *iface_name, uin
         buffer[offset++] =  opt->option_length & ONE_BYTE_MASK;
         switch (opt->option_code) {
             case CLIENT_ID_OPTION_CODE:
-                buffer[offset++] = (opt->client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                buffer[offset++] = opt->client_id_t.duid.hw_type & ONE_BYTE_MASK;
-
                 buffer[offset++] = (opt->client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 buffer[offset++] = opt->client_id_t.duid.duid_type & ONE_BYTE_MASK;
-                        
-                    
+
+                buffer[offset++] = (opt->client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->client_id_t.duid.hw_type & ONE_BYTE_MASK;
+                           
                 for (int index = 0; index < MAC_ADDRESS_LENGTH; index++) {
                     buffer[offset++] = opt->client_id_t.duid.mac[index] & ONE_BYTE_MASK;
                 }
@@ -1274,8 +1389,8 @@ int sendRenew(dhcpv6_message_t *message, int sockfd, const char *iface_name, uin
 dhcpv6_message_t * buildRebind(dhcpv6_message_t *reply, config_t *config) {
     uint8_t option_count = reply->option_count;
 
-   dhcpv6_message_t *rebind = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
-   valid_memory_allocation(rebind);
+    dhcpv6_message_t *rebind = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
+    valid_memory_allocation(rebind);
 
     rebind->message_type = REBIND_MESSAGE_TYPE;
     rebind->transaction_id = rand() & THREE_BYTE_MASK;
@@ -1368,12 +1483,11 @@ int sendRebind(dhcpv6_message_t *message, int sockfd, const char *iface_name, ui
         buffer[offset++] =  opt->option_length & ONE_BYTE_MASK;
         switch (opt->option_code) {
             case CLIENT_ID_OPTION_CODE:
-                buffer[offset++] = (opt->client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                buffer[offset++] = opt->client_id_t.duid.hw_type & ONE_BYTE_MASK;
-
                 buffer[offset++] = (opt->client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 buffer[offset++] = opt->client_id_t.duid.duid_type & ONE_BYTE_MASK;
-                        
+
+                buffer[offset++] = (opt->client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->client_id_t.duid.hw_type & ONE_BYTE_MASK;
                     
                 for (int index = 0; index < MAC_ADDRESS_LENGTH; index++) {
                     buffer[offset++] = opt->client_id_t.duid.mac[index] & ONE_BYTE_MASK;
@@ -1573,12 +1687,11 @@ int sendDecline(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
         buffer[offset++] =  opt->option_length & ONE_BYTE_MASK;
         switch (opt->option_code) {
             case CLIENT_ID_OPTION_CODE:
-                buffer[offset++] = (opt->client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                buffer[offset++] = opt->client_id_t.duid.hw_type & ONE_BYTE_MASK;
-
                 buffer[offset++] = (opt->client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 buffer[offset++] = opt->client_id_t.duid.duid_type & ONE_BYTE_MASK;
-                        
+
+                buffer[offset++] = (opt->client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+                buffer[offset++] = opt->client_id_t.duid.hw_type & ONE_BYTE_MASK;
                     
                 for (int index = 0; index < MAC_ADDRESS_LENGTH; index++) {
                     buffer[offset++] = opt->client_id_t.duid.mac[index] & ONE_BYTE_MASK;

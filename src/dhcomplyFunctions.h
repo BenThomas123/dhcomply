@@ -191,7 +191,6 @@ static const uint32_t decline_upper[] = {
 #define CLIENT_ID_OPTION_CODE              1
 #define SERVER_ID_OPTION_CODE              2
 #define IA_NA_OPTION_CODE                  3
-#define IA_TA_OPTION_CODE                  4
 #define IA_ADDR_OPTION_CODE                5
 #define ORO_OPTION_CODE                    6
 #define PREFERENCE_OPTION_CODE             7
@@ -398,6 +397,7 @@ typedef struct dhcpv6_message {
     uint32_t transaction_id;
     dhcpv6_option_t *option_list;
     uint8_t option_count;
+    bool valid;
 } dhcpv6_message_t;
 
 typedef struct config {
@@ -481,6 +481,5 @@ dhcpv6_message_t *buildReconfigure(config_t *);
 int sendReconfigure(dhcpv6_message_t *, int );
 
 // Information-Request
-dhcpv6_message_t *buildInformationRequest(config_t *);
-int sendInformationRequest(dhcpv6_message_t *, int);
-
+dhcpv6_message_t *buildInformationRequest(config_t *, const char *);
+int sendInformationRequest(dhcpv6_message_t *, int, const char *, uint32_t);

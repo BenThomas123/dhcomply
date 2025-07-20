@@ -185,13 +185,14 @@ int max (int a, int b) {
 }
 
 void UserLog (const char *message) {
-
+    fprintf(stdout, "%s\n", message);
 }
 
 void debugLog (const char *message) {
-
+    fprintf(stderr, "%s\n", message);
 }
 
 void errorLog (const char *message) {
-
+    fprintf(stderr, "%s\n", message);
 }
+
