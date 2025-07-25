@@ -1,8 +1,5 @@
 #include "dhcomplyStandardLibrary.h"
 
-
-extern int accepted;
-
 // Retransmission constants
 /* ================================================= */
 #define SOLICIT_RETRANS_COUNT 14
@@ -441,6 +438,8 @@ uint8_t get_option_count(uint8_t *, unsigned long int, uint8_t *);
 int get_option_index(uint8_t *, unsigned long int, uint8_t);
 int writeLease(IANA_t *, IAPD_t *, const char *);
 uint8_t renewsAllowed(uint32_t);
+uint32_t readIANA();
+uint32_t readIAPD();
 
 // Solicit
 dhcpv6_message_t *buildSolicit(config_t *, const char *);

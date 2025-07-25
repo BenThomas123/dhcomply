@@ -26,16 +26,6 @@ typedef unsigned int uint32_t;
 typedef unsigned long uint64_t;
 typedef __uint128_t uint128_t;
 
-typedef struct LinkedListNode {
-    void *data;
-    struct LinkedListNode *next;
-} LinkedListNode;
-
-typedef struct LinkedList {
-    LinkedListNode *head;
-    size_t size;
-} LinkedList;
-
 void valid_file_pointer(FILE *);
 void valid_memory_allocation(void *);
 void valid_socket(int);
@@ -43,6 +33,7 @@ int get_mac_address(const char *, uint8_t[6]);
 
 void randomize();
 void create_config_file();
+void create_IA_file();
 void init_dhcomply();
 
 char *substring(const char *, size_t, size_t);

@@ -61,6 +61,45 @@ config_t *read_config_file(char *iaString) {
     return config_file;
 }
 
+uint32_t readIANA() {
+    FILE *fp = fopen("/etc/dhcomplyIA.conf", "r");
+    valid_file_pointer(fp);
+
+	char IA[9];
+	if (fgets(IA, sizeof(IA), fp)) {
+    	size_t len = strlen(IA);
+    	if (len > 0 && IA[len - 1] == '\n') {
+        	IA[len - 1] = '\0';
+    	}
+
+    	uint32_t num = strtol(IA, NULL, 16);
+		return num;
+	}
+
+
+    return 0;
+}
+
+uint32_t readIAPD() {
+    FILE *fp = fopen("/etc/dhcomplyIA.conf", "r");
+    valid_file_pointer(fp);
+
+	char IA[9];
+	fgets(IA, sizeof(IA), fp)
+	if (fgets(IA, sizeof(IA), fp)) {
+    	size_t len = strlen(IA);
+    	if (len > 0 && IA[len - 1] == '\n') {
+        	IA[len - 1] = '\0';
+    	}
+
+    	uint32_t num = strtol(IA, NULL, 16);
+		return num;
+	}
+
+
+    return 0;
+}
+
 int check_for_message(int sockfd, uint8_t *packet, int type) {
     fd_set read_fds;
     struct timeval timeout;
@@ -285,7 +324,7 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     if (config->na) {
         msg->option_list[index].option_code = IA_NA_OPTION_CODE;
         msg->option_list[index].option_length = 12;
-        msg->option_list[index].ia_na_t.iaid = rand() & FOUR_BYTE_MASK;
+        msg->option_list[index].ia_na_t.iaid = readIANA();
         msg->option_list[index].ia_na_t.t1 = 0;
         msg->option_list[index].ia_na_t.t2 = 0;
         index++;
@@ -295,7 +334,7 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     if (config->pd) {
         msg->option_list[index].option_code = IA_PD_OPTION_CODE;
         msg->option_list[index].option_length = 12;
-        msg->option_list[index].ia_pd_t.iaid = rand() & FOUR_BYTE_MASK;
+        msg->option_list[index].ia_pd_t.iaid = readIAPD();
         msg->option_list[index].ia_pd_t.t1 = 0;
         msg->option_list[index].ia_pd_t.t2 = 0;
         index++;

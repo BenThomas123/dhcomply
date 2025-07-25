@@ -159,9 +159,29 @@ void create_config_file() {
     fclose(fp);
 }
 
+void create_IA_file() {
+    FILE *fp = fopen("/etc/dhcomplyIA.conf", "wx");
+    if (fp == NULL) {
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+
+    if (!size) {
+        uint32_t iana = rand() % 0xFFFFFFFF;
+        uint32_t iapd = rand() % 0xFFFFFFFF;
+
+        fprintf(fp, "%X\n". iana);
+        fprintf(fp, "%X\n". iapd);
+    }
+    fclose(fp);
+}
+
 void init_dhcomply() {
     randomize();
     create_config_file();
+    create_IA_file();
 }
 
 void randomize () {
