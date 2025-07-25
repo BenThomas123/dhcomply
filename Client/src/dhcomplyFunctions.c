@@ -643,18 +643,26 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
 
             case IA_NA_OPTION_CODE:
                 request->option_list[index].ia_na_t = advertisement->option_list[i].ia_na_t;
+                request->option_list[index].ia_na_t.t1 = 0;
+                request->option_list[index].ia_na_t.t2 = 0;
                 break;
 
             case IA_ADDR_OPTION_CODE:
                 request->option_list[index].ia_address_t = advertisement->option_list[i].ia_address_t;
+                request->option_list[index].ia_address_t.valid_lifetime = 0;
+                request->option_list[index].ia_address_t.preferred_lifetime = 0;
                 break;
 
             case IA_PD_OPTION_CODE:
                 request->option_list[index].ia_pd_t = advertisement->option_list[i].ia_pd_t;
+                request->option_list[index].ia_pd_t.t1 = 0;
+                request->option_list[index].ia_pd_t.t2 = 0;
                 break;
 
             case IAPREFIX_OPTION_CODE:
                 request->option_list[index].ia_prefix_t = advertisement->option_list[i].ia_prefix_t;
+                request->option_list[index].ia_prefix_t.valid_lifetime = 0;
+                request->option_list[index].ia_prefix_t.preferred_lifetime = 0;
                 break;
 
             case DNS_SERVERS_OPTION_CODE:
@@ -940,6 +948,8 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 iana->t1 = reply->option_list[option_index].ia_na_t.t1;
                 iana->t2 = reply->option_list[option_index].ia_na_t.t2;
 
+                if (iana->t2 < iana->t1 && iana->t2 != 0 && iana->t1 != 0) { badReply = true; }
+
                 option_index++;
                 reply->option_list[option_index].option_code = packet[index + 17];
                 if (reply->option_list[option_index].option_code == STATUS_CODE_OPTION_CODE) {
@@ -970,6 +980,11 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                     reply->option_list[option_index].ia_address_t.valid_lifetime |= (packet[index + (40 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
 
+                iana->validlifetime = reply->option_list[option_index].ia_address_t.valid_lifetime;
+                iana->preferredlifetime = reply->option_list[option_index].ia_address_t.preferred_lifetime;
+
+                if (iana->preferredlifetime > iana->preferredlifetime) {badReply = true; }
+
                 if (request->option_list[option_index].ia_address_t.ipv6_address !=
                     reply->option_list[option_index].ia_address_t.ipv6_address &&
                     request->message_type != REQUEST_MESSAGE_TYPE) {
@@ -991,9 +1006,6 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 char str[28];
                 strcpy(str, address_string);
                 iana->address = str;
-                iana->validlifetime = reply->option_list[option_index].ia_address_t.valid_lifetime;
-                iana->preferredlifetime = reply->option_list[option_index].ia_address_t.preferred_lifetime;
-
                 break;
             case IA_PD_OPTION_CODE:
                options_included_total += IA_PD_OPTION_CODE;
@@ -1007,6 +1019,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 iapd->iaid = reply->option_list[option_index].ia_pd_t.iaid;
                 iapd->t1 = reply->option_list[option_index].ia_pd_t.t1;
                 iapd->t2 = reply->option_list[option_index].ia_pd_t.t2;
+                if (iapd->t2 < iapd->t1 && iapd->t2 != 0 && iapd->t1 != 0) { badReply = true; }
 
                 option_index++;
                 options_included_total += IAPREFIX_OPTION_CODE;
@@ -1029,6 +1042,9 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                     prefix <<= ONE_BYTE_SHIFT;
                     prefix |= packet[index + 29 + (START_POINT_IN_READING_ADDRESS - byte)];
                 }
+                iapd->validlifetime = reply->option_list[option_index].ia_prefix_t.valid_lifetime;
+                iapd->preferredlifetime = reply->option_list[option_index].ia_prefix_t.preferred_lifetime;
+                if (iapd->preferredlifetime > iapd->preferredlifetime) {badReply = true; }
 
                 reply->option_list[option_index].ia_prefix_t.ipv6_prefix = prefix;
 
@@ -1049,8 +1065,6 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 }
 
                 iapd->prefix = reply->option_list[option_index].ia_prefix_t.ipv6_prefix;
-                iapd->validlifetime = reply->option_list[option_index].ia_prefix_t.valid_lifetime;
-                iapd->preferredlifetime = reply->option_list[option_index].ia_prefix_t.preferred_lifetime;
                 iapd->prefix_length = reply->option_list[option_index].ia_prefix_t.prefix_length;
 
                 break;
@@ -1193,18 +1207,26 @@ dhcpv6_message_t * buildRenew(dhcpv6_message_t *reply, config_t *config) {
 
             case IA_NA_OPTION_CODE:
                 renew->option_list[index].ia_na_t = reply->option_list[i].ia_na_t;
+                renew->option_list[index].ia_na_t.t1 = 0;
+                renew->option_list[index].ia_na_t.t2 = 0;
                 break;
 
             case IA_ADDR_OPTION_CODE:
                 renew->option_list[index].ia_address_t = reply->option_list[i].ia_address_t;
+                renew->option_list[index].ia_address_t.valid_lifetime = 0;
+                renew->option_list[index].ia_address_t.preferred_lifetime = 0;
                 break;
 
             case IA_PD_OPTION_CODE:
                 renew->option_list[index].ia_pd_t = reply->option_list[i].ia_pd_t;
+                renew->option_list[index].ia_pd_t.t1 = 0;
+                renew->option_list[index].ia_pd_t.t2 = 0;
                 break;
 
             case IAPREFIX_OPTION_CODE:
                 renew->option_list[index].ia_prefix_t = reply->option_list[i].ia_prefix_t;
+                renew->option_list[index].ia_prefix_t.valid_lifetime = 0;
+                renew->option_list[index].ia_prefix_t.preferred_lifetime = 0;
                 break;
 
             case DNS_SERVERS_OPTION_CODE:
@@ -1412,18 +1434,26 @@ dhcpv6_message_t * buildRebind(dhcpv6_message_t *reply, config_t *config) {
 
             case IA_NA_OPTION_CODE:
                 rebind->option_list[index].ia_na_t = reply->option_list[i].ia_na_t;
+                rebind->option_list[index].ia_na_t.t1 = 0;
+                rebind->option_list[index].ia_na_t.t2 = 0;
                 break;
 
             case IA_ADDR_OPTION_CODE:
                 rebind->option_list[index].ia_address_t = reply->option_list[i].ia_address_t;
+                rebind->option_list[index].ia_address_t.valid_lifetime = 0;
+                rebind->option_list[index].ia_address_t.preferred_lifetime = 0;
                 break;
 
             case IA_PD_OPTION_CODE:
                 rebind->option_list[index].ia_pd_t = reply->option_list[i].ia_pd_t;
+                rebind->option_list[index].ia_pd_t.t1 = 0;
+                rebind->option_list[index].ia_pd_t.t2 = 0;
                 break;
 
             case IAPREFIX_OPTION_CODE:
                 rebind->option_list[index].ia_prefix_t = reply->option_list[i].ia_prefix_t;
+                rebind->option_list[index].ia_prefix_t.valid_lifetime = 0;
+                rebind->option_list[index].ia_prefix_t.preferred_lifetime = 0;
                 break;
 
             case DNS_SERVERS_OPTION_CODE:
@@ -1628,6 +1658,8 @@ dhcpv6_message_t * buildDecline(dhcpv6_message_t *reply, config_t *config) {
                 decline->option_list[index].option_code = option_code;
                 decline->option_list[index].option_length = option_length;                  
                 decline->option_list[index].ia_na_t = reply->option_list[i].ia_na_t;
+                decline->option_list[index].ia_na_t.t1 = 0;
+                decline->option_list[index].ia_na_t.t2 = 0;
                 index++;
                 break;
 
@@ -1635,6 +1667,8 @@ dhcpv6_message_t * buildDecline(dhcpv6_message_t *reply, config_t *config) {
                 decline->option_list[index].option_code = option_code;
                 decline->option_list[index].option_length = option_length;      
                 decline->option_list[index].ia_address_t = reply->option_list[i].ia_address_t;
+                decline->option_list[index].ia_address_t.valid_lifetime = 0;
+                decline->option_list[index].ia_address_t.preferred_lifetime = 0;
                 index++;
                 break;
 

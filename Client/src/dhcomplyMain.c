@@ -79,6 +79,7 @@ int main(int argc, char *argv[]) {
                             if (t2 == 0) {
                                 t2 = t1 + 30;
                             }
+
                             uint8_t *reply_packet2 = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
 
                             if (check_dad_failure(argv[2])) {
