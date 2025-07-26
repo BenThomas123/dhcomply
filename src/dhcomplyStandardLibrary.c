@@ -165,15 +165,15 @@ void create_IA_file() {
         return NULL;
     }
 
-    fseek(file, 0, SEEK_END);
-    long size = ftell(file);
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
 
     if (!size) {
         uint32_t iana = rand() % 0xFFFFFFFF;
         uint32_t iapd = rand() % 0xFFFFFFFF;
 
-        fprintf(fp, "%X\n". iana);
-        fprintf(fp, "%X\n". iapd);
+        fprintf(fp, "%X\n", iana);
+        fprintf(fp, "%X\n", iapd);
     }
     fclose(fp);
 }

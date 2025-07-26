@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
             index = get_option_index(advertisement_packet, advertisement_check, PREFERENCE_OPTION_CODE);
             uint16_t preference = 0;
             if (index != -1) {
-                uint16_t preference = advertisement->option_list[index].preference_t.preference;
+                uint16_t preference = advertisement->option_list[index].preference_t.preference_value;
             }
 
             if (preference == 255 || retransmissionSolicit) {

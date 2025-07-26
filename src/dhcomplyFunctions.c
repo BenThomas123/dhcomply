@@ -85,7 +85,7 @@ uint32_t readIAPD() {
     valid_file_pointer(fp);
 
 	char IA[9];
-	fgets(IA, sizeof(IA), fp)
+	fgets(IA, sizeof(IA), fp);
 	if (fgets(IA, sizeof(IA), fp)) {
     	size_t len = strlen(IA);
     	if (len > 0 && IA[len - 1] == '\n') {
@@ -632,7 +632,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
             }
 
             case PREFERENCE_OPTION_CODE:
-                advertise_message->option_list[option_index].preference_t.preference = (packet[index + 4] << 8) | packet[index + 5];
+                advertise_message->option_list[option_index].preference_t.preference_value = (packet[index + 4] << 8) | packet[index + 5];
                 break;
 
             default:
@@ -1192,7 +1192,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
             case PREFERENCE_OPTION_CODE:
                 // Preference is a 2-byte value
-                reply->option_list[option_index].preference_t.preference = (packet[index + 4] << 8) | packet[index + 5];
+                reply->option_list[option_index].preference_t.preference_value = (packet[index + 4] << 8) | packet[index + 5];
                 break;
 
             default:
