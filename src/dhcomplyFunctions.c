@@ -11,13 +11,10 @@ config_t *read_config_file(char *iaString) {
     config_file->na = false;
     config_file->pd = false;
 
-
     FILE *cfp = fopen(CONFIG_FILE_PATH, "r");
     valid_file_pointer(cfp);
 
-
     char line[MAX_LINE_LEN];
-
 
     config_file->oro_list = (uint8_t *)calloc(ORO_ARRAY_LENGTH, sizeof(uint8_t));
     valid_memory_allocation(config_file->oro_list);
@@ -259,7 +256,6 @@ uint8_t renewsAllowed(uint32_t t1minust2) {
 
     return index;
 }
-
 
 dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     size_t option_count = 2;
@@ -1025,7 +1021,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 iana->validlifetime = reply->option_list[option_index].ia_address_t.valid_lifetime;
                 iana->preferredlifetime = reply->option_list[option_index].ia_address_t.preferred_lifetime;
 
-                if (iana->preferredlifetime > iana->preferredlifetime) {badReply = true; }
+                if (iana->preferredlifetime > iana->validlifetime) {badReply = true; }
 
                 if (request->option_list[option_index].ia_address_t.ipv6_address !=
                     reply->option_list[option_index].ia_address_t.ipv6_address &&
@@ -1086,7 +1082,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 }
                 iapd->validlifetime = reply->option_list[option_index].ia_prefix_t.valid_lifetime;
                 iapd->preferredlifetime = reply->option_list[option_index].ia_prefix_t.preferred_lifetime;
-                if (iapd->preferredlifetime > iapd->preferredlifetime) {badReply = true; }
+                if (iapd->preferredlifetime > iapd->validlifetime) {badReply = true; }
 
                 reply->option_list[option_index].ia_prefix_t.ipv6_prefix = prefix;
 

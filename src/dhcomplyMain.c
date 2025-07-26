@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
     dhcpv6_message_t *firstSol = buildSolicit(config_file, argv[2]);
     sendSolicit(firstSol, sockfd, argv[2], 0);
 
-    int sol_max_rt = 3600 * MILLISECONDS_IN_SECONDS;
+    uint64_t sol_max_rt = 3600 * MILLISECONDS_IN_SECONDS;
 
     uint8_t retransmissionSolicit = 0;
     uint32_t elapse_time = 0;
@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
             index = get_option_index(advertisement_packet, advertisement_check, PREFERENCE_OPTION_CODE);
             uint16_t preference = 0;
             if (index != -1) {
-                uint16_t preference = advertisement->option_list[index].preference_t.preference_value;
+                preference = advertisement->option_list[index].preference_t.preference_value;
             }
 
             if (preference == 255 || retransmissionSolicit) {
@@ -107,7 +107,6 @@ int main(int argc, char *argv[]) {
                                     reply_check = check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
                                     declineRetransmission++;
                                 }
-                                time_t restOfLife = time(NULL);
                                 while (time(NULL) - startLease < valid_lifetime) {}
 
                                 char cmd2[512];
@@ -132,7 +131,6 @@ int main(int argc, char *argv[]) {
                             elapse_time = 0;
                             uint32_t maxRenewRetransmissions = renewsAllowed(t2 - t1);
                             reply_check2 = 0;
-                            time_t startRebind = time(NULL);
                             while (retransmissionRenew < maxRenewRetransmissions) {
                                 uint32_t retrans_time_renew = renew_lower[retransmissionRenew] + (rand() % (renew_upper[retransmissionRenew] - renew_lower[retransmissionRenew]));
                                 elapse_time += retrans_time_renew;
