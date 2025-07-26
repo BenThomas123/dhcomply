@@ -35,6 +35,15 @@ int main(int argc, char *argv[]) {
         }
         if (advertisement_check && advertisement->valid) {
             dhcpv6_message_t *request = buildRequest(advertisement, config_file);
+            index = get_option_index(advertisement_packet, advertisement_check, PREFERENCE_OPTION_CODE);
+            uint16_t preference = 0;
+            if (index != -1) {
+                uint16_t preference = advertisement->option_list[index].preference_t.preference;
+            }
+
+            if (preference == 255 || retransmissionSolicit) {
+                usleep(1000000);
+            }
             sendRequest(request, sockfd, argv[2], 0);
             int retransmissionRequest = 0;
             elapse_time = 0;

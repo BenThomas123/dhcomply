@@ -631,6 +631,10 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
                 break;
             }
 
+            case PREFERENCE_OPTION_CODE:
+                advertise_message->option_list[option_index].preference_t.preference = (packet[index + 4] << 8) | packet[index + 5];
+                break;
+
             default:
                 break;
         }
@@ -869,12 +873,6 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
                 break;
 
-            case SOL_MAX_RT_OPTION_CODE:
-                for (int b = 3; b >= 0; b--) {
-                    buffer[offset++] = (opt->SOL_MAX_RT_t.SOL_MAX_RT_value >> (8 * b)) & ONE_BYTE_MASK;
-                }
-                break;
-
             default:
                 break;
         }
@@ -955,7 +953,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 if (reply->option_list[option_index].client_id_t.duid.duid_type != request->option_list[option_index].client_id_t.duid.duid_type) {
                     badReply = true;
                 }
-                
+
                 reply->option_list[option_index].client_id_t.duid.hw_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
                 reply->option_list[option_index].client_id_t.duid.hw_type = packet[index + 7] & ONE_BYTE_MASK;
 
@@ -1192,6 +1190,11 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 break;
             }
 
+            case PREFERENCE_OPTION_CODE:
+                // Preference is a 2-byte value
+                reply->option_list[option_index].preference_t.preference = (packet[index + 4] << 8) | packet[index + 5];
+                break;
+
             default:
                 break;
         }
@@ -1348,220 +1351,6 @@ int sendRenew(dhcpv6_message_t *message, int sockfd, const char *iface_name, uin
                     buffer[offset++] = opt->server_id_t.duid.mac[octet];
                 }
                 
-                break;
-
-            case IA_NA_OPTION_CODE:
-                int offset_na_2 = offset + 4;
-                int offset_na_3 = offset + 8;
-                for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_na_t.iaid >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset_na_2++] = (opt->ia_na_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset_na_3++] = (opt->ia_na_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                }
-                offset = offset_na_3;
-                
-                break;
-
-            case IA_ADDR_OPTION_CODE:
-                for (int octet = 120; octet > -1; octet -= 8) {
-                    buffer[offset++] = (opt->ia_address_t.ipv6_address >> octet) & ONE_BYTE_MASK;
-                }
-
-                for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_address_t.preferred_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-
-                }
-
-                for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_address_t.valid_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                }
-
-                break;
-
-            case IA_PD_OPTION_CODE:
-                int offset_pd_2 = offset + 4;
-                int offset_pd_3 = offset + 8;
-                for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_pd_t.iaid >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset_pd_2++] = (opt->ia_pd_t.t1 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                    buffer[offset_pd_3++] = (opt->ia_pd_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                }
-                offset = offset_pd_3;
-                break;
-                
-            case IAPREFIX_OPTION_CODE:
-                for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_prefix_t.preferred_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                }
-
-                for (int octet = 3; octet > -1; octet--) {
-                    buffer[offset++] = (opt->ia_prefix_t.valid_lifetime >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
-                }
-
-                buffer[offset++] = opt->ia_prefix_t.prefix_length;
-
-                for (int octet = 120; octet > -1; octet -= 8) {
-                    buffer[offset++] = (opt->ia_prefix_t.ipv6_prefix >> octet) & ONE_BYTE_MASK;
-                }
-                break;
-            
-            case ELAPSED_TIME_OPTION_CODE:
-                buffer[offset++] = (elapsed_time >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                buffer[offset++] = elapsed_time & ONE_BYTE_MASK;
-                break;
-
-            case ORO_OPTION_CODE:
-                for (int byte = 0; byte < opt->option_length / OPTION_CODE_LENGTH_IN_ORO; byte++) {
-                    buffer[offset++] = (opt->option_request_t.option_request[byte] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                    buffer[offset++] = opt->option_request_t.option_request[byte] & ONE_BYTE_MASK;
-                }
-                break;
-            
-            case DNS_SERVERS_OPTION_CODE:
-                for (int byte = 0; byte < opt->option_length; byte++) {
-                    buffer[offset++] = opt->dns_recursive_name_server_t.dns_servers[byte];
-                }
-                break;
-
-            case DOMAIN_SEARCH_LIST_OPTION_CODE:
-                for (int byte = 0; byte < opt->option_length; byte++) {
-                    buffer[offset++] = opt->domain_search_list_t.search_list[byte];
-                }
-
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    struct sockaddr_in6 dest = {0};
-    dest.sin6_family = AF_INET6;
-    dest.sin6_port = htons(DHCP_SERVER_PORT);
-    inet_pton(AF_INET6, ALL_DHCP_RELAY_AGENTS_AND_SERVERS, &dest.sin6_addr);
-    dest.sin6_scope_id = if_nametoindex(iface_name);
-
-    ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    valid_socket(sent);
-
-    return 0;
-}
-
-dhcpv6_message_t * buildRebind(dhcpv6_message_t *reply, config_t *config) {
-    uint8_t option_count = reply->option_count;
-
-    dhcpv6_message_t *rebind = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
-    valid_memory_allocation(rebind);
-
-    rebind->message_type = REBIND_MESSAGE_TYPE;
-    rebind->transaction_id = rand() & THREE_BYTE_MASK;
-
-    rebind->option_list = calloc(option_count + 1, sizeof(dhcpv6_option_t));
-    valid_memory_allocation(rebind->option_list);
-
-    size_t index = 0;
-    for (int i = 0; i < option_count; i++) {
-        dhcpv6_option_t *opt = &reply->option_list[i];
-        uint16_t option_code = opt->option_code;
-        uint16_t option_length = opt->option_length;
-        rebind->option_list[index].option_code = option_code;
-        rebind->option_list[index].option_length = option_length;
-        switch (opt->option_code) {
-            case CLIENT_ID_OPTION_CODE:
-                rebind->option_list[index].client_id_t = reply->option_list[i].client_id_t;
-                break;
-
-            case IA_NA_OPTION_CODE:
-                rebind->option_list[index].ia_na_t = reply->option_list[i].ia_na_t;
-                rebind->option_list[index].ia_na_t.t1 = 0;
-                rebind->option_list[index].ia_na_t.t2 = 0;
-                break;
-
-            case IA_ADDR_OPTION_CODE:
-                rebind->option_list[index].ia_address_t = reply->option_list[i].ia_address_t;
-                rebind->option_list[index].ia_address_t.valid_lifetime = 0;
-                rebind->option_list[index].ia_address_t.preferred_lifetime = 0;
-                break;
-
-            case IA_PD_OPTION_CODE:
-                rebind->option_list[index].ia_pd_t = reply->option_list[i].ia_pd_t;
-                rebind->option_list[index].ia_pd_t.t1 = 0;
-                rebind->option_list[index].ia_pd_t.t2 = 0;
-                break;
-
-            case IAPREFIX_OPTION_CODE:
-                rebind->option_list[index].ia_prefix_t = reply->option_list[i].ia_prefix_t;
-                rebind->option_list[index].ia_prefix_t.valid_lifetime = 0;
-                rebind->option_list[index].ia_prefix_t.preferred_lifetime = 0;
-                break;
-
-            case DNS_SERVERS_OPTION_CODE:
-                rebind->option_list[index].dns_recursive_name_server_t = reply->option_list[i].dns_recursive_name_server_t;
-                break;
-
-            case DOMAIN_SEARCH_LIST_OPTION_CODE:
-                rebind->option_list[index].domain_search_list_t.search_list = reply->option_list[i].domain_search_list_t.search_list;
-                break;
-
-            default:
-                break;
-        }
-
-        index++;
-    }
-
-    rebind->option_list[index].option_code = ELAPSED_TIME_OPTION_CODE;
-    rebind->option_list[index].option_length = 2;
-    rebind->option_list[index].elapsed_time_t.elapsed_time_value = 0;
-    index++;
-
-    if (config->oro_list_length > 0) {
-        rebind->option_list[index].option_code = ORO_OPTION_CODE;
-        rebind->option_list[index].option_length = config->oro_list_length * OPTION_CODE_LENGTH_IN_ORO;
-        rebind->option_list[index].option_request_t.option_request = (uint8_t *)calloc(rebind->option_list[index].option_length / OPTION_CODE_LENGTH_IN_ORO, sizeof(uint8_t));
-        valid_memory_allocation(rebind->option_list[index].option_request_t.option_request);
-        memcpy(rebind->option_list[index].option_request_t.option_request, config->oro_list, config->oro_list_length);
-        index++;
-    }
-
-    rebind->option_count = index;
-
-    return rebind;
-}
-
-int sendRebind(dhcpv6_message_t *message, int sockfd, const char *iface_name, uint32_t elapsed_time) {
-    if (!message || sockfd < 0) exit(-1);
-
-    uint8_t buffer[MAX_PACKET_SIZE];
-    uint16_t offset = 0;
-
-    // Header
-    buffer[offset++] = message->message_type;
-    buffer[offset++] = (message->transaction_id >> TWO_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] = (message->transaction_id >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-    buffer[offset++] = message->transaction_id & ONE_BYTE_MASK;
-
-    for (int i = 0; i < message->option_count; i++) {
-        dhcpv6_option_t *opt = &message->option_list[i];
-        if ((opt->option_code == 0 && opt->option_length == 0) || opt->option_code == 2) continue;
-
-        buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-        buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
-
-        buffer[offset++] = (opt->option_length >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-        buffer[offset++] =  opt->option_length & ONE_BYTE_MASK;
-        switch (opt->option_code) {
-            case CLIENT_ID_OPTION_CODE:
-                buffer[offset++] = (opt->client_id_t.duid.duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                buffer[offset++] = opt->client_id_t.duid.duid_type & ONE_BYTE_MASK;
-
-                buffer[offset++] = (opt->client_id_t.duid.hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
-                buffer[offset++] = opt->client_id_t.duid.hw_type & ONE_BYTE_MASK;
-                    
-                for (int index = 0; index < MAC_ADDRESS_LENGTH; index++) {
-                    buffer[offset++] = opt->client_id_t.duid.mac[index] & ONE_BYTE_MASK;
-                }
-
                 break;
 
             case IA_NA_OPTION_CODE:
@@ -1825,6 +1614,19 @@ int sendDecline(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 }
                 break;
 
+            case DNS_SERVERS_OPTION_CODE:
+                for (int byte = 0; byte < opt->option_length; byte++) {
+                    buffer[offset++] = opt->dns_recursive_name_server_t.dns_servers[byte];
+                }
+                break;
+
+            case DOMAIN_SEARCH_LIST_OPTION_CODE:
+                for (int byte = 0; byte < opt->option_length; byte++) {
+                    buffer[offset++] = opt->domain_search_list_t.search_list[byte];
+                }
+
+                break;
+
             default:
                 break;
         }
@@ -1841,3 +1643,4 @@ int sendDecline(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
     return 0;
 }
+
