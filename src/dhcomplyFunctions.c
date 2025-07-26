@@ -73,9 +73,11 @@ uint32_t readIANA() {
     	}
 
     	uint32_t num = strtol(IA, NULL, 16);
+        fclose(fp);
 		return num;
 	}
 
+    fclose(fp);
 
     return 0;
 }
@@ -84,18 +86,21 @@ uint32_t readIAPD() {
     FILE *fp = fopen("/etc/dhcomplyIA.conf", "r");
     valid_file_pointer(fp);
 
-	char IA[9];
+	char IA[17];
 	fgets(IA, sizeof(IA), fp);
 	if (fgets(IA, sizeof(IA), fp)) {
-    	size_t len = strlen(IA);
+        fprintf(stderr, "Reading IAPD from file: %s\n", IA);
+        size_t len = strlen(IA);
     	if (len > 0 && IA[len - 1] == '\n') {
         	IA[len - 1] = '\0';
     	}
 
     	uint32_t num = strtol(IA, NULL, 16);
+		fclose(fp);
 		return num;
 	}
 
+    fclose(fp);
 
     return 0;
 }

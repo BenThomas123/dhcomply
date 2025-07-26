@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
                                 sendRebind(rebind, sockfd, argv[2], 0);
 
                                 reply_check = check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
-                                while (retransmissionRebind < REBIND_RETRANS_COUNT && time(NULL) - startLease < valid_lifetime) {
+                                while (retransmissionRebind < REBIND_RETRANS_COUNT && time(NULL) - startLease < valid_lifetime && !reply_check) {
                                     uint32_t retrans_time_rebind = rebind_lower[retransmissionRebind] + (rand() % (rebind_upper[retransmissionRebind] - rebind_lower[retransmissionRebind]));
                                     elapse_time += retrans_time_rebind;
                                     usleep(retrans_time_rebind * MILLISECONDS_IN_SECONDS);
@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
                                         sendRebind(rebind, sockfd, argv[2], 65535);
                                     }
                                     reply_check = check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
-                                    if (reply_check != 0) {
+                                    if (reply_check) {
                                         break;
                                     }
                                     retransmissionRebind++;
@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) {
                                     snprintf(cmd2, "chmod +x rm -f /var/lib/dhcp/%s", "");
                                     system(cmd2);
                                     char cmd[512];
-                                    snprintf(cmd, "rm -f/var/lib/dhcp/lease_%s.json", argv[2]);
+                                    snprintf(cmd, "rm -f /var/lib/dhcp/lease_%s.json", argv[2]);
                                     system(cmd);
                                     goto restart;
                                 } else {
