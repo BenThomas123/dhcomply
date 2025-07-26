@@ -162,7 +162,7 @@ void create_config_file() {
 void create_IA_file() {
     FILE *fp = fopen("/etc/dhcomplyIA.conf", "wx");
     if (fp == NULL) {
-        return NULL;
+        return;
     }
 
     fseek(fp, 0, SEEK_END);

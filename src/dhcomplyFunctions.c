@@ -1025,7 +1025,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 iana->validlifetime = reply->option_list[option_index].ia_address_t.valid_lifetime;
                 iana->preferredlifetime = reply->option_list[option_index].ia_address_t.preferred_lifetime;
 
-                if (iana->preferredlifetime > iana->preferredlifetime) {badReply = true; }
+                if (iana->preferredlifetime > iana->validlifetime) {badReply = true; }
 
                 if (request->option_list[option_index].ia_address_t.ipv6_address !=
                     reply->option_list[option_index].ia_address_t.ipv6_address &&
@@ -1086,7 +1086,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 }
                 iapd->validlifetime = reply->option_list[option_index].ia_prefix_t.valid_lifetime;
                 iapd->preferredlifetime = reply->option_list[option_index].ia_prefix_t.preferred_lifetime;
-                if (iapd->preferredlifetime > iapd->preferredlifetime) {badReply = true; }
+                if (iapd->preferredlifetime > iapd->validlifetime) {badReply = true; }
 
                 reply->option_list[option_index].ia_prefix_t.ipv6_prefix = prefix;
 
