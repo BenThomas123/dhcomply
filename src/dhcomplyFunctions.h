@@ -3,6 +3,7 @@
 // Retransmission constants
 /* ================================================= */
 #define SOLICIT_RETRANS_COUNT 14
+#define INFO_REQUEST_RETRANS_COUNT 14
 #define REQUEST_RETRANS_COUNT 10
 #define RENEW_RETRANS_COUNT   10
 #define REBIND_RETRANS_COUNT  10
@@ -454,6 +455,7 @@ int sendRequest(dhcpv6_message_t *, int , const char *, uint32_t);
 
 // Reply
 dhcpv6_message_t *parseReply(uint8_t *, dhcpv6_message_t *, const char *, int);
+dhcpv6_message_t *parseStatelessReply(uint8_t *, dhcpv6_message_t *, const char *, int);
 
 // Renew
 dhcpv6_message_t * buildRenew(dhcpv6_message_t *, config_t *);
