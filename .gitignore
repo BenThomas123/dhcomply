@@ -2,3 +2,4 @@ dhcomply*.o
 c*.o
 .idea/
 .vscode/
+.venv/
