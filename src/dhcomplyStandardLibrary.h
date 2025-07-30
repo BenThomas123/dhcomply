@@ -1,3 +1,6 @@
+#ifndef DHCOMPLY_STANDARD_LIBRARY_H
+#define DHCOMPLY_STANDARD_LIBRARY_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -46,7 +49,8 @@ char *format_ipv6_prefix(uint8_t prefix_len, uint128_t prefix);
 int max(int, int);
 int min(int, int);
 
+void userLog(const char *);
+void errorLog(const char *);
+void debugLog(const char *);
 
-void userLog (const char *);
-void errorLog (const char *);
-void debugLog (const char *);
+#endif // DHCOMPLY_STANDARD_LIBRARY_H
