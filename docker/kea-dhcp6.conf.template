@@ -1,0 +1,53 @@
+{
+  "Dhcp6": {
+    "interfaces-config": {
+      "interfaces": ["__DHCP_INTERFACE__"]
+    },
+
+    "lease-database": {
+      "type": "memfile",
+      "persist": false
+    },
+
+    "renew-timer": 50,
+    "rebind-timer": 80,
+    "preferred-lifetime": 100,
+    "valid-lifetime": 240,
+
+    "option-data": [
+      {
+        "name": "dns-servers",
+        "data": "2001:db8:1::53"
+      },
+      {
+        "name": "domain-search",
+        "data": "dhcomply.test"
+      }
+    ],
+
+    "subnet6": [
+      {
+        "id": 1,
+        "interface": "__DHCP_INTERFACE__",
+        "subnet": "2001:db8:1::/64",
+        "pools": [
+          {
+            "pool": "2001:db8:1::100-2001:db8:1::ffff"
+          }
+        ]
+      }
+    ],
+
+    "loggers": [
+      {
+        "name": "kea-dhcp6",
+        "severity": "INFO",
+        "output_options": [
+          {
+            "output": "stdout"
+          }
+        ]
+      }
+    ]
+  }
+}
