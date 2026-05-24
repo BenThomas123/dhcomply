@@ -259,3 +259,9 @@ uint8_t renewsAllowed(uint32_t t1minust2) {
 
     return index;
 }
+
+void waitToRetransmit(uint64_t retrans_time) {
+	if (retrans_time >= 1000) {
+	    usleep((retrans_time * MICROSECONDS_IN_MILLISECONDS) - MICROSECONDS_IN_SECONDS);
+	}
+}
