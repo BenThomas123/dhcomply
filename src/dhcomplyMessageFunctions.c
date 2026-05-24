@@ -176,7 +176,7 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     dest.sin6_scope_id = if_nametoindex(iface_name);
 
     ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-	valid_socket(sent);
+	packet_sent_sucessfully(sent);
 
     return 0;
 }
@@ -628,7 +628,7 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     dest.sin6_scope_id = if_nametoindex(iface_name);
 
     ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    valid_socket(sent);
+    packet_sent_sucessfully(sent);
 
     return 0;
 }
@@ -1188,7 +1188,7 @@ int sendRenew(dhcpv6_message_t *message, int sockfd, const char *iface_name, uin
     dest.sin6_scope_id = if_nametoindex(iface_name);
 
     ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    valid_socket(sent);
+    packet_sent_sucessfully(sent);
 
     return 0;
 }
@@ -1394,7 +1394,7 @@ int sendRebind(dhcpv6_message_t *message, int sockfd, const char *iface_name, ui
     dest.sin6_scope_id = if_nametoindex(iface_name);
 
     ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    valid_socket(sent);
+    packet_sent_sucessfully(sent);
 
     return 0;
 }
@@ -1588,7 +1588,7 @@ int sendDecline(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     dest.sin6_scope_id = if_nametoindex(iface_name);
 
     ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    valid_socket(sent);
+    packet_sent_sucessfully(sent);
 
     return 0;
 }
@@ -1711,7 +1711,7 @@ int sendInformationRequest(dhcpv6_message_t *message, int sockfd, const char *if
     dest.sin6_scope_id = if_nametoindex(iface_name);
 
     ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    valid_socket(sent);
+    packet_sent_sucessfully(sent);
 
     return 0;
 }

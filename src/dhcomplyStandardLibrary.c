@@ -26,6 +26,13 @@ void valid_socket(int sockfd) {
     }
 }
 
+void packet_sent_sucessfully(ssize_t sent) {
+    if (sent < 0) {
+        perror("Packet was not sent\n");
+        exit(-1);
+    }
+}
+
 // string library add ons
 char *trim(char *str)
 {

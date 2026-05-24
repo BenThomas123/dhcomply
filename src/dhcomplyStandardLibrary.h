@@ -31,6 +31,7 @@ typedef __uint128_t uint128_t;
 void valid_file_pointer(FILE *);
 void valid_memory_allocation(void *);
 void valid_socket(int);
+void packet_sent_sucessfully(ssize_t);
 int get_mac_address(const char *, uint8_t[6]);
 
 void randomize();
