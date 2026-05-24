@@ -242,11 +242,15 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                     elapse_time += retrans_time_rebind;
                                     usleep(retrans_time_rebind);
 
-                                    if (retrans_time_rebind < 655350) {
-                                        sendRebind(rebind, sockfd, ifname, elapse_time / 10);
-                                    } else {
-                                        sendRebind(rebind, sockfd, ifname, 65535);
-                                    }
+									if (time(NULL) - startLease < valid_lifetime) {
+                                    	if (retrans_time_rebind < 655350) {
+                                        	sendRebind(rebind, sockfd, ifname, elapse_time / 10);
+                                    	} else {
+                                        	sendRebind(rebind, sockfd, ifname, 65535);
+                                    	}
+									} else {
+										break;
+									}
 
                                     reply_check =
                                         check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
