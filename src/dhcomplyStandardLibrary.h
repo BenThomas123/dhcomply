@@ -17,11 +17,10 @@
 #include <sys/select.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include <cjson/cJSON.h>
+#include "cJSON.h"
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
-
-#define MAC_ADDRESS_LENGTH 6
+#include "dhcomplyStandardLibraryConstants.h"
 
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
@@ -53,4 +52,4 @@ void userLog(const char *);
 void errorLog(const char *);
 void debugLog(const char *);
 
-#endif // DHCOMPLY_STANDARD_LIBRARY_H
+#endif
