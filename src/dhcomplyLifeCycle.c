@@ -111,11 +111,19 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                             }
 
                             if (t1 == 0) {
-                                t1 = 50;
+								if (config_file->t1 == 0) {
+									t1 = valid_lifetime * .5;
+								} else {
+									t1 = config_file->t1;
+								}
                             }
 
                             if (t2 == 0) {
-                                t2 = t1 + 30;
+                                if (config_file->t2 == 0) {
+									t2 = valid_lifetime * .8;
+								} else {
+									t2 = config_file->t2;
+								}
                             }
 
                             uint8_t *reply_packet2 =
@@ -219,6 +227,18 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
 
                                 while (time(NULL) - startLease < t2) {
                                     usleep(MICROSECONDS_IN_MILLISECONDS);
+                                }
+
+                                if (time(NULL) - startLease >= valid_lifetime) {
+                                    char cmd2[512];
+                                    snprintf(cmd2, "chmod +x rm -f /var/lib/dhcp/%s", "");
+                                    system(cmd2);
+
+                                    char cmd[512];
+                                    snprintf(cmd, "rm -f /var/lib/dhcp/lease_%s.json", ifname);
+                                    system(cmd);
+
+                                    goto restart;
                                 }
 
                                 dhcpv6_message_t *rebind =

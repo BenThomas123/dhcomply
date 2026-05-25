@@ -10,6 +10,8 @@ config_t *read_config_file(char *iaString) {
     config_file->oro_list_length = 0;
     config_file->na = false;
     config_file->pd = false;
+	config_file->t1 = 0;
+	config_file->t2 = 0;
 
     FILE *cfp = fopen(CONFIG_FILE_PATH, "r");
     valid_file_pointer(cfp);
@@ -33,7 +35,11 @@ config_t *read_config_file(char *iaString) {
         }
         else if (!strcmp(RAPID_COMMIT_LINE, line)) {
             config_file->rapid_commit = true;
-        }
+        } else if (!strcmp(substring(line, 0, strlen(T1_CONFIG_FILE_LINE)), T1_CONFIG_FILE_LINE)) {
+			config_file->t1 = strtol(substring_to_end(line, strlen(T1_CONFIG_FILE_LINE)), NULL, 10);
+		} else if (!strcmp(substring(line, 0, strlen(T2_CONFIG_FILE_LINE)), T2_CONFIG_FILE_LINE)) {
+			config_file->t2 = strtol(substring_to_end(line, strlen(T2_CONFIG_FILE_LINE)), NULL, 10);
+		}
 
         for (int i = 0; i < ORO_ARRAY_LENGTH; i++) {
             if (!strcmp(line, ORO[i])) {
@@ -57,6 +63,15 @@ config_t *read_config_file(char *iaString) {
         config_file->na = false;
         config_file->pd = false;
     }
+
+	if (config_file->t1 != 0 || config_file->t2 != 0) {
+		if (config_file->t1 == 0) { perror("You cannot configure T2 without configuring T1\n"); exit(-1); }
+		if (config_file->t2 == 0) { config_file->t2 = config_file->t1 + 5000; }
+		if (config_file->t2 <= config_file->t1) {
+			perror("You must configure T2 to be greater than T1\n");
+			exit(-1);
+		}
+	}
 
     return config_file;
 }
@@ -251,8 +266,9 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
 
 uint8_t renewsAllowed(uint32_t t1minust2) {
     uint8_t index = 0;
-    uint8_t elapsed_time = renew_upper[index] / MILLISECONDS_IN_SECONDS;
-    while (elapsed_time < t1minust2) {
+    uint32_t elapsed_time = renew_upper[index] / MILLISECONDS_IN_SECONDS;
+
+    while (elapsed_time < t1minust2 && index < 9) {
         index++;
         elapsed_time += (renew_upper[index] / MILLISECONDS_IN_SECONDS);
     } 
