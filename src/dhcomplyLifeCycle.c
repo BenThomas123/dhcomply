@@ -47,7 +47,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
             }
 
             if (preference == 255 || retransmissionSolicit) {
-                usleep(MILLISECONDS_IN_SECONDS);
+                usleep(MICROSECONDS_IN_SECONDS);
             }
 
             sendRequest(request, sockfd, ifname, 0);
@@ -140,7 +140,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                           decline_lower[declineRetransmission]));
 
                                     elapse_time += retrans_time_decline;
-                                    usleep(retrans_time_decline);
+                                    waitToRetransmit(retrans_time_decline);
 
                                     decline = buildDecline(reply_message, config_file);
                                     sendDecline(decline, sockfd, ifname, elapse_time / 10);
@@ -151,10 +151,9 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                     declineRetransmission++;
                                 }
 
-                            while (time(NULL) - startLease < valid_lifetime) {
-                                usleep(MILLISECONDS_IN_SECONDS);
-                            }
-
+                            	while (time(NULL) - startLease < valid_lifetime) {
+                                	usleep(MICROSECONDS_IN_MILLISECONDS);
+                            	}
                                 char cmd2[512];
                                 snprintf(cmd2, "chmod +x rm -f /var/lib/dhcp/%s", "");
                                 system(cmd2);
@@ -167,7 +166,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                             }
 
                             while (time(NULL) - startLease < t1) {
-                                usleep(MILLISECONDS_IN_SECONDS);
+                                usleep(MICROSECONDS_IN_MILLISECONDS);
                             }
 
                             dhcpv6_message_t *renew = buildRenew(reply_message, config_file);
@@ -196,7 +195,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                       renew_lower[retransmissionRenew]));
 
                                 elapse_time += retrans_time_renew;
-                                usleep(retrans_time_renew);
+                                waitToRetransmit(retrans_time_renew);
 
                                 if (retrans_time_renew < 655360) {
                                     sendRenew(renew, sockfd, ifname, elapse_time / 10);
@@ -219,7 +218,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                 elapse_time = 0;
 
                                 while (time(NULL) - startLease < t2) {
-                                    usleep(MILLISECONDS_IN_SECONDS);
+                                    usleep(MICROSECONDS_IN_MILLISECONDS);
                                 }
 
                                 dhcpv6_message_t *rebind =
@@ -240,17 +239,16 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                           rebind_lower[retransmissionRebind]));
 
                                     elapse_time += retrans_time_rebind;
-                                    usleep(retrans_time_rebind);
-
+                                    waitToRetransmit(retrans_time_rebind);
 									if (time(NULL) - startLease < valid_lifetime) {
-                                    	if (retrans_time_rebind < 655350) {
+		                                if (retrans_time_rebind < 655350) {
                                         	sendRebind(rebind, sockfd, ifname, elapse_time / 10);
-                                    	} else {
-                                        	sendRebind(rebind, sockfd, ifname, 65535);
-                                    	}
+        	                            } else {
+            	                            sendRebind(rebind, sockfd, ifname, 65535);
+                	                    }
 									} else {
-										break;
-									}
+                    break
+                  }
 
                                     reply_check =
                                         check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
@@ -293,8 +291,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                       lower_request[retransmissionRequest]));
 
                 elapse_time += retrans_time_request;
-                usleep(retrans_time_request);
-
+                waitToRetransmit(retrans_time_request);
                 sendRequest(request, sockfd, ifname, elapse_time / 10);
 
                 retransmissionRequest++;
@@ -302,8 +299,10 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
 
             retransmissionSolicit = 0;
             elapse_time = 0;
+			usleep(MICROSECONDS_IN_SECONDS);
+			goto restart;
         } else {
-            usleep(retrans_time);
+            waitToRetransmit(retrans_time);
 
             if (elapse_time < 655350) {
                 sendSolicit(firstSol, sockfd, ifname, elapse_time / 10);
@@ -353,7 +352,7 @@ void statelessLifeCycle(config_t *config_file, char *ifname, int sockfd) {
         }
 
         if (reply_check && reply_message->valid) {
-            usleep(refresh_time);
+            usleep(refresh_time * MICROSECONDS_IN_MILLISECONDS);
             goto restartStateless;
         }
 
@@ -401,10 +400,10 @@ void statelessLifeCycle(config_t *config_file, char *ifname, int sockfd) {
                         MILLISECONDS_IN_SECONDS;
                 }
 
-                usleep(refresh_time);
+                usleep(refresh_time * MICROSECONDS_IN_MILLISECONDS);
                 goto restartStateless;
             } else {
-                usleep(retrans_time);
+                waitToRetransmit(retrans_time * MICROSECONDS_IN_MILLISECONDS);
 
                 if (elapse_time < 655350) {
                     sendInformationRequest(firstInfoReq, sockfd, ifname, elapse_time / 10);
