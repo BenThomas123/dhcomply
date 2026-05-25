@@ -229,6 +229,18 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                     usleep(MICROSECONDS_IN_MILLISECONDS);
                                 }
 
+                                if (time(NULL) - startLease >= valid_lifetime) {
+                                    char cmd2[512];
+                                    snprintf(cmd2, "chmod +x rm -f /var/lib/dhcp/%s", "");
+                                    system(cmd2);
+
+                                    char cmd[512];
+                                    snprintf(cmd, "rm -f /var/lib/dhcp/lease_%s.json", ifname);
+                                    system(cmd);
+
+                                    goto restart;
+                                }
+
                                 dhcpv6_message_t *rebind =
                                     buildRebind(reply_message, config_file);
 
