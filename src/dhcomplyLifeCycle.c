@@ -246,7 +246,9 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
         	                            } else {
             	                            sendRebind(rebind, sockfd, ifname, 65535);
                 	                    }
-									}
+									} else {
+                    break
+                  }
 
                                     reply_check =
                                         check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
