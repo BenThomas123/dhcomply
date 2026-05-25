@@ -12,13 +12,14 @@ config_t *read_config_file(char *iaString) {
     config_file->pd = false;
 	config_file->t1 = 0;
 	config_file->t2 = 0;
+    bool oppositeMaxRTRequest = false;
 
     FILE *cfp = fopen(CONFIG_FILE_PATH, "r");
     valid_file_pointer(cfp);
 
     char line[MAX_LINE_LEN];
 
-    config_file->oro_list = (uint8_t *)calloc(ORO_ARRAY_LENGTH, sizeof(uint8_t));
+    config_file->oro_list = (uint8_t *)calloc(ORO_MAX_REQUESTED_OPTIONS, sizeof(uint8_t));
     valid_memory_allocation(config_file->oro_list);
 
     while (fgets(line, sizeof(line), cfp)) {
@@ -39,7 +40,11 @@ config_t *read_config_file(char *iaString) {
 			config_file->t1 = strtol(substring_to_end(line, strlen(T1_CONFIG_FILE_LINE)), NULL, 10);
 		} else if (!strcmp(substring(line, 0, strlen(T2_CONFIG_FILE_LINE)), T2_CONFIG_FILE_LINE)) {
 			config_file->t2 = strtol(substring_to_end(line, strlen(T2_CONFIG_FILE_LINE)), NULL, 10);
-		}
+		} else if (!strcmp(iaString, STATELESS_STRING) && !strcmp(line, ORO[ORO_ARRAY_LENGTH])) {
+            oppositeMaxRTRequest = true;
+        } else if (strcmp(iaString, STATELESS_STRING) && !strcmp(line, ORO[ORO_ARRAY_LENGTH + 1])) {
+            oppositeMaxRTRequest = true;
+        }
 
         for (int i = 0; i < ORO_ARRAY_LENGTH; i++) {
             if (!strcmp(line, ORO[i])) {
@@ -63,6 +68,18 @@ config_t *read_config_file(char *iaString) {
         config_file->na = false;
         config_file->pd = false;
     }
+
+	if (!strcmp(iaString, STATELESS_STRING)) {
+		config_file->oro_list[config_file->oro_list_length++] = INF_MAX_RT_OPTION_CODE;
+        if (oppositeMaxRTRequest) {
+            config_file->oro_list[config_file->oro_list_length++] = SOL_MAX_RT_OPTION_CODE;
+        }
+	} else {
+		config_file->oro_list[config_file->oro_list_length++] = SOL_MAX_RT_OPTION_CODE;
+        if (oppositeMaxRTRequest) {
+            config_file->oro_list[config_file->oro_list_length++] = INF_MAX_RT_OPTION_CODE;
+        }
+	}
 
 	if (config_file->t1 != 0 || config_file->t2 != 0) {
 		if (config_file->t1 == 0) { perror("You cannot configure T2 without configuring T1\n"); exit(-1); }

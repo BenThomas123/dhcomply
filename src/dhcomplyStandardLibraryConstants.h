@@ -9,7 +9,8 @@
 #define MICROSECONDS_IN_MILLISECONDS 1000
 #define MICROSECONDS_IN_SECONDS MILLISECONDS_IN_SECONDS * MICROSECONDS_IN_MILLISECONDS
 #define MAX_PACKET_SIZE 2000
-#define ORO_ARRAY_LENGTH 9
+#define ORO_ARRAY_LENGTH 7
+#define ORO_MAX_REQUESTED_OPTIONS ORO_ARRAY_LENGTH + 2
 #define OPTION_CODE_LENGTH_IN_ORO 2
 #define EMPTY_STRING ""
 /* ================================== */
@@ -54,7 +55,7 @@
 static const char *ORO[] = {"user-class", "vendor-class", "vendor-opts",
                             "dns-servers", "domain-search-list", "information-refresh-time",
                             "pd-exclude", "sol-max-rt", "inf-max-rt"};
-static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 67, 82, 83};
+static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 67};
 #define MAX_LINE_LEN 150
 /* ================================================================================ */
 
