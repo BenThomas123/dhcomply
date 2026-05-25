@@ -774,7 +774,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 char cmd2[512];
                 char address_string2[INET6_ADDRSTRLEN];
                 uint128_to_ipv6_str(address, address_string2, sizeof(address_string2));
-                sprintf(cmd2, "sudo ip -6 addr del %s/%d dev %s", address_string2, 128, iface);
+				sprintf(cmd2, "sudo ip -6 addr del %s/%d dev %s 2>/dev/null", address_string2, 128, iface);
                 system(cmd2);
 
                 char cmd[512];
