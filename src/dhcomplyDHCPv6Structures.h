@@ -146,6 +146,8 @@ typedef struct config
     uint8_t oro_list_length;
     bool na;
     bool pd;
+    uint32_t t1;
+    uint32_t t2;
 } config_t;
 
 typedef struct IANA
