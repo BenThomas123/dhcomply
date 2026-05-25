@@ -266,8 +266,9 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
 
 uint8_t renewsAllowed(uint32_t t1minust2) {
     uint8_t index = 0;
-    uint8_t elapsed_time = renew_upper[index] / MILLISECONDS_IN_SECONDS;
-    while (elapsed_time < t1minust2) {
+    uint32_t elapsed_time = renew_upper[index] / MILLISECONDS_IN_SECONDS;
+
+    while (elapsed_time < t1minust2 && index < 9) {
         index++;
         elapsed_time += (renew_upper[index] / MILLISECONDS_IN_SECONDS);
     } 

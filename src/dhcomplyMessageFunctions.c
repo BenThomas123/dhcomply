@@ -783,9 +783,8 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, reply->option_list[option_index].ia_address_t.preferred_lifetime, reply->option_list[option_index].ia_address_t.valid_lifetime);
                 system(cmd);
 
-                char str[28];
-                strcpy(str, address_string);
-                iana->address = str;
+                iana->address = strdup(address_string);
+                valid_memory_allocation(iana->address);
                 break;
             case IA_PD_OPTION_CODE:
                options_included_total += IA_PD_OPTION_CODE;
