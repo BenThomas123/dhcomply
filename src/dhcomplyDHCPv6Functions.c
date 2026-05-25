@@ -10,6 +10,8 @@ config_t *read_config_file(char *iaString) {
     config_file->oro_list_length = 0;
     config_file->na = false;
     config_file->pd = false;
+	config_file->t1 = 0;
+	config_file->t2 = 0;
 
     FILE *cfp = fopen(CONFIG_FILE_PATH, "r");
     valid_file_pointer(cfp);
@@ -33,7 +35,11 @@ config_t *read_config_file(char *iaString) {
         }
         else if (!strcmp(RAPID_COMMIT_LINE, line)) {
             config_file->rapid_commit = true;
-        }
+        } else if (!strcmp(substring(T1_CONFIG_FILE_LINE, 0, strlen(T1_CONFIG_FILE_LINE)), T1_CONFIG_FILE_LINE)) {
+			config_file->t1 = strtol(substringTo_end(T1_CONFIG_FILE_LINE, strlen(T1_CONFIG_FILE_LINE)));
+		} else if (!strcmp(substring(T2_CONFIG_FILE_LINE, 0, strlen(T2_CONFIG_FILE_LINE)), T2_CONFIG_FILE_LINE)) {
+			config_file->t2 = strtol(substringTo_end(T2_CONFIG_FILE_LINE, strlen(T2_CONFIG_FILE_LINE)));
+		}
 
         for (int i = 0; i < ORO_ARRAY_LENGTH; i++) {
             if (!strcmp(line, ORO[i])) {
@@ -57,6 +63,13 @@ config_t *read_config_file(char *iaString) {
         config_file->na = false;
         config_file->pd = false;
     }
+
+	if (config_file->t1 == 0) { config_file->t1 = 50; }
+	if (config_file->t2 == 0) { config_file->t2 = config_file->t1 + 30; }
+	if (t2 <= t1) {
+		perror("You must configure T2 to be greater than T1");
+		exit(-1);
+	}
 
     return config_file;
 }

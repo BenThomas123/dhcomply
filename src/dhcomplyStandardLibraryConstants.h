@@ -48,6 +48,8 @@
 #define RECONFIGURE_CONFIG_FILE_LINE_INFO_REQ "send dhcp6.reconfigure-accept, 7"
 #define RAPID_COMMIT_LINE "send dhcp6.rapid-commit"
 #define FQDN_CONFIG_FILE_LINE "send dhcp6.fully-qualified-domain-name"
+#define T1_CONFIG_FILE_LINE "send dhcp6.t1 "
+#define T2_CONFIG_FILE_LINE "send dhcp6.t2 "
 #define OPTION_REQUEST_OPTION_LINE "send dhcp6.option-request-option."
 static const char *ORO[] = {"user-class", "vendor-class", "vendor-opts",
                             "dns-servers", "domain-search-list", "information-refresh-time",

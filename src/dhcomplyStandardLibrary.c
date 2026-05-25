@@ -76,6 +76,20 @@ char *substring(const char *str, size_t start, size_t len)
     return substr;
 }
 
+char *substring_to_end(const char *s, size_t start) {
+    size_t len = strlen(s);
+
+    if (start > len) {
+        return NULL;
+    }
+
+    char *result = malloc(len - start + 1);
+	valid_memory_allocation(result);
+
+    strcpy(result, s + start);
+    return result;
+}
+
 void to_uppercase(char *str)
 {
     while (*str)
