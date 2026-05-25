@@ -3,6 +3,7 @@ CFLAGS = -Wall -Wextra -std=gnu99 -g -Ilib
 LDFLAGS = -lm
 BINDIR = bin
 TARGET = $(BINDIR)/dhcomply
+DAD_SCRIPT = $(BINDIR)/check_dad.sh
 
 # Source files
 SRCS = src/dhcomplyMain.c \
@@ -15,15 +16,22 @@ SRCS = src/dhcomplyMain.c \
 # Object files
 OBJS = $(SRCS:.c=.o)
 
-all: $(TARGET)
+all: $(TARGET) $(DAD_SCRIPT)
 
-$(TARGET): $(OBJS)
+$(TARGET): $(OBJS) | $(BINDIR)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(DAD_SCRIPT): src/check_dad.sh | $(BINDIR)
+	@cp $< $@
+	@chmod +x $@
+
+$(BINDIR):
+	@mkdir -p $(BINDIR)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET) $(DAD_SCRIPT)
 
 .PHONY: all clean

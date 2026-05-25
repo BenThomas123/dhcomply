@@ -1,4 +1,11 @@
 #include "dhcomplyDHCPv6Functions.h"
+#include <errno.h>
+#include <limits.h>
+#include <sys/wait.h>
+
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
 config_t *read_config_file(char *iaString) {
     config_t *config_file = malloc(sizeof(config_t));
@@ -159,10 +166,61 @@ int check_for_message(int sockfd, uint8_t *packet, int type) {
     return 0;
 }
 
+static bool get_check_dad_script_path(char *script_path, size_t script_path_size) {
+    char exe_path[PATH_MAX];
+    ssize_t exe_path_len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+    if (exe_path_len < 0) {
+        perror("readlink /proc/self/exe");
+        return false;
+    }
+
+    exe_path[exe_path_len] = '\0';
+
+    char *last_slash = strrchr(exe_path, '/');
+    if (!last_slash) {
+        fprintf(stderr, "Unable to determine executable directory from %s\n", exe_path);
+        return false;
+    }
+
+    *last_slash = '\0';
+
+    int written = snprintf(script_path, script_path_size, "%s/check_dad.sh", exe_path);
+    if (written < 0 || (size_t)written >= script_path_size) {
+        fprintf(stderr, "check_dad.sh path is too long\n");
+        return false;
+    }
+
+    return true;
+}
+
 bool check_dad_failure(const char *interface) {
-    char command[256];
-    snprintf(command, sizeof(command), "./check_dad.sh %s", interface);
-    int status = system(command);
+    char script_path[PATH_MAX];
+    if (!get_check_dad_script_path(script_path, sizeof(script_path))) {
+        return false;
+    }
+
+    if (access(script_path, R_OK) != 0) {
+        fprintf(stderr, "Unable to read DAD check script at %s: %s\n", script_path, strerror(errno));
+        return false;
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        return false;
+    }
+
+    if (pid == 0) {
+        execl("/bin/bash", "bash", script_path, interface, (char *)NULL);
+        fprintf(stderr, "Unable to execute DAD check script at %s: %s\n", script_path, strerror(errno));
+        _exit(127);
+    }
+
+    int status;
+    if (waitpid(pid, &status, 0) < 0) {
+        perror("waitpid");
+        return false;
+    }
 
     if (WIFEXITED(status)) {
         int code = WEXITSTATUS(status);
