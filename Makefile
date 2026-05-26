@@ -8,7 +8,9 @@ DAD_SCRIPT = $(BINDIR)/check_dad.sh
 # Source files
 SRCS = src/dhcomplyMain.c \
        src/dhcomplyLifeCycle.c \
-       src/dhcomplyMessageFunctions.c \
+       src/dhcomplyBuildMessageFunctions.c \
+       src/dhcomplyParseMessageFunctions.c \
+       src/dhcomplySendMessageFunctions.c \
        src/dhcomplyDHCPv6Functions.c \
        src/dhcomplyStandardLibrary.c \
        lib/cJSON.c

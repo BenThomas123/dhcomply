@@ -52,10 +52,16 @@
 #define T1_CONFIG_FILE_LINE "send dhcp6.t1 "
 #define T2_CONFIG_FILE_LINE "send dhcp6.t2 "
 #define OPTION_REQUEST_OPTION_LINE "send dhcp6.option-request-option."
-static const char *ORO[] = {"user-class", "vendor-class", "vendor-opts",
+#if defined(__GNUC__) || defined(__clang__)
+#define DHCOMPLY_UNUSED __attribute__((unused))
+#else
+#define DHCOMPLY_UNUSED
+#endif
+static const char *ORO[] DHCOMPLY_UNUSED = {"user-class", "vendor-class", "vendor-opts",
                             "dns-servers", "domain-search-list", "information-refresh-time",
                             "pd-exclude", "sol-max-rt", "inf-max-rt"};
-static const uint8_t ORO_code[] = {15, 16, 17, 23, 24, 32, 67};
+static const uint8_t ORO_code[] DHCOMPLY_UNUSED = {15, 16, 17, 23, 24, 32, 67};
+#undef DHCOMPLY_UNUSED
 #define MAX_LINE_LEN 150
 /* ================================================================================ */
 

@@ -20,6 +20,9 @@
 #include "cJSON.h"
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
+#include <errno.h>
+#include <limits.h>
+#include <sys/wait.h>
 #include "dhcomplyStandardLibraryConstants.h"
 
 typedef unsigned char uint8_t;
@@ -36,7 +39,6 @@ int get_mac_address(const char *, uint8_t[6]);
 
 void randomize();
 void create_config_file();
-void create_IA_file();
 void init_dhcomply();
 
 char *substring(const char *, size_t, size_t);
@@ -46,6 +48,8 @@ void to_uppercase(char *);
 int uint128_to_ipv6_str(__uint128_t, char *, size_t);
 char *append_ipv6_address_if_unique(const char *, const char *);
 char *format_ipv6_prefix(uint8_t prefix_len, uint128_t prefix);
+bool leaseFileExists(const char *);
+cJSON *readLease(const char *);
 
 int max(int, int);
 int min(int, int);

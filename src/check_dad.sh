@@ -9,10 +9,18 @@ if [ -z "$INTERFACE" ]; then
     exit 1
 fi
 
-# Check if DAD failed is present in the interface details
-if ip a show dev "$INTERFACE" | grep -q "dadfailed"; then
-    echo "DAD failed on interface $INTERFACE"
-    exit 2
-else
-    exit 0
-fi
+# Give the kernel time to complete asynchronous Duplicate Address Detection.
+for _ in $(seq 1 30); do
+    if ip a show dev "$INTERFACE" | grep -q "dadfailed"; then
+        echo "DAD failed on interface $INTERFACE"
+        exit 2
+    fi
+
+    if ! ip a show dev "$INTERFACE" | grep -q "tentative"; then
+        exit 0
+    fi
+
+    sleep 0.1
+done
+
+exit 0

@@ -1,6 +1,5 @@
 #include "dhcomplyStandardLibrary.h"
 
-// stdlib addons
 void valid_file_pointer(FILE *fp)
 {
     if (fp == NULL)
@@ -144,14 +143,88 @@ char *append_ipv6_address_if_unique(const char *addr_list, const char *new_addr)
 char *format_ipv6_prefix(uint8_t prefix_len, uint128_t prefix) {
     if (prefix_len > 128) return NULL;
 
-    for (int i = 0; i < (prefix_len / 16) + 1; i++) {
-        prefix >>= 8;
+    char prefix_string[INET6_ADDRSTRLEN];
+    if (uint128_to_ipv6_str(prefix, prefix_string, sizeof(prefix_string)) != 0) {
+        return NULL;
     }
 
-    char *string = malloc(150);
-    snprintf(string, 150, "%08lX::/%hhu", prefix, prefix_len);
+    char *string = malloc(INET6_ADDRSTRLEN + 5);
+    if (!string) return NULL;
+    snprintf(string, INET6_ADDRSTRLEN + 5, "%s/%hhu", prefix_string, prefix_len);
 
     return string;
+}
+
+bool leaseFileExists(const char *iface_name) {
+    if (!iface_name) {
+        return false;
+    }
+
+    char filename[strlen(iface_name) + 35];
+    snprintf(filename, sizeof(filename), "/var/lib/dhcp/lease_%s.json", iface_name);
+
+    return access(filename, F_OK) == 0;
+}
+
+cJSON *readLease(const char *iface_name) {
+    if (!leaseFileExists(iface_name)) {
+        return NULL;
+    }
+
+    char filename[strlen(iface_name) + 35];
+    snprintf(filename, sizeof(filename), "/var/lib/dhcp/lease_%s.json", iface_name);
+
+    FILE *f = fopen(filename, "r");
+    if (!f) {
+        perror("fopen");
+        return NULL;
+    }
+
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return NULL;
+    }
+
+    long file_size = ftell(f);
+    if (file_size < 0) {
+        fclose(f);
+        return NULL;
+    }
+
+    rewind(f);
+
+    char *json_string = (char *)calloc((size_t)file_size + 1, sizeof(char));
+    if (!json_string) {
+        fclose(f);
+        return NULL;
+    }
+
+    size_t bytes_read = fread(json_string, sizeof(char), (size_t)file_size, f);
+    fclose(f);
+
+    if (bytes_read != (size_t)file_size) {
+        free(json_string);
+        return NULL;
+    }
+
+    remove(filename);
+
+    cJSON *lease_json = cJSON_Parse(json_string);
+    free(json_string);
+
+    if (!lease_json) {
+        return NULL;
+    }
+
+    cJSON *server_duid = cJSON_GetObjectItemCaseSensitive(lease_json, "server_duid");
+    cJSON *leases = cJSON_GetObjectItemCaseSensitive(lease_json, "leases");
+
+    if (!cJSON_IsObject(server_duid) || !cJSON_IsArray(leases)) {
+        cJSON_Delete(lease_json);
+        return NULL;
+    }
+
+    return lease_json;
 }
 
 int get_mac_address(const char *iface_name, uint8_t mac[6]) {
@@ -180,29 +253,9 @@ void create_config_file() {
     fclose(fp);
 }
 
-void create_IA_file() {
-    FILE *fp = fopen("/etc/dhcomplyIA.conf", "wx");
-    if (fp == NULL) {
-        return;
-    }
-
-    fseek(fp, 0, SEEK_END);
-    long size = ftell(fp);
-
-    if (!size) {
-        uint32_t iana = rand() % 0xFFFFFFFF;
-        uint32_t iapd = rand() % 0xFFFFFFFF;
-
-        fprintf(fp, "%X\n", iana);
-        fprintf(fp, "%X\n", iapd);
-    }
-    fclose(fp);
-}
-
 void init_dhcomply() {
     randomize();
     create_config_file();
-    create_IA_file();
 }
 
 void randomize () {
