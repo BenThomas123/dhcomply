@@ -802,7 +802,8 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 option_index++;
                 options_included_total += IAPREFIX_OPTION_CODE;
-                reply->option_list[option_index].option_code = packet[index + 17];
+				reply->option_list[option_index].option_code =
+    				(packet[index + 16] << 8) | packet[index + 17];
                 if (reply->option_list[option_index].option_code == STATUS_CODE_OPTION_CODE) {
                     int status_code = 0;
                     status_code |= (packet[index + 20] << ONE_BYTE_SHIFT);
@@ -821,19 +822,19 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                     prefix <<= ONE_BYTE_SHIFT;
                     prefix |= packet[index + 29 + (START_POINT_IN_READING_ADDRESS - byte)];
                 }
-                iapd->validlifetime = reply->option_list[option_index].ia_prefix_t.valid_lifetime;
-                iapd->preferredlifetime = reply->option_list[option_index].ia_prefix_t.preferred_lifetime;
-                if (iapd->preferredlifetime > iapd->validlifetime) {badReply = true; }
-
                 reply->option_list[option_index].ia_prefix_t.ipv6_prefix = prefix;
 
                 for (int byte = 3; byte > -1; byte--) {
-                    reply->option_list[option_index].ia_address_t.preferred_lifetime |= (packet[index + (20 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    reply->option_list[option_index].ia_prefix_t.preferred_lifetime |= (packet[index + (20 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
 
                 for (int byte = 3; byte > -1; byte--) {
-                    reply->option_list[option_index].ia_address_t.valid_lifetime |= (packet[index + (24 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
+                    reply->option_list[option_index].ia_prefix_t.valid_lifetime |= (packet[index + (24 + byte)] << (ONE_BYTE_SHIFT * (3 - byte)));
                 }
+
+                iapd->validlifetime = reply->option_list[option_index].ia_prefix_t.valid_lifetime;
+                iapd->preferredlifetime = reply->option_list[option_index].ia_prefix_t.preferred_lifetime;
+                if (iapd->preferredlifetime > iapd->validlifetime) {badReply = true; }
 
                 reply->option_list[option_index].ia_prefix_t.prefix_length = packet[index + 28];
 

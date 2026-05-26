@@ -289,7 +289,7 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
         cJSON *iana_obj = cJSON_CreateObject();
         cJSON_AddStringToObject(iana_obj, "type", "IANA");
         char hexstring[11];
-        sprintf(hexstring, "%08X", iana->iaid);
+        sprintf(hexstring, "%08x", iana->iaid);
         cJSON_AddStringToObject(iana_obj, "iaid", hexstring);
         cJSON_AddNumberToObject(iana_obj, "t1", iana->t1);
         cJSON_AddNumberToObject(iana_obj, "t2", iana->t2);
@@ -303,11 +303,16 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
         cJSON *iapd_obj = cJSON_CreateObject();
         cJSON_AddStringToObject(iapd_obj, "type", "IAPD");
         char hexstring2[11];
-        sprintf(hexstring2, "%08X", iapd->iaid);
+        sprintf(hexstring2, "%08x", iapd->iaid);
         cJSON_AddStringToObject(iapd_obj, "iaid", hexstring2);
         cJSON_AddNumberToObject(iapd_obj, "t1", iapd->t1);
         cJSON_AddNumberToObject(iapd_obj, "t2", iapd->t2);
-        cJSON_AddStringToObject(iapd_obj, "prefix", format_ipv6_prefix(iapd->prefix_length, iapd->prefix));
+        char prefix_address[INET6_ADDRSTRLEN];
+        char prefix_cidr[INET6_ADDRSTRLEN + 5];
+        if (uint128_to_ipv6_str(iapd->prefix, prefix_address, sizeof(prefix_address)) == 0) {
+            snprintf(prefix_cidr, sizeof(prefix_cidr), "%s/%u", prefix_address, iapd->prefix_length);
+            cJSON_AddStringToObject(iapd_obj, "prefix", prefix_cidr);
+        }
         cJSON_AddNumberToObject(iapd_obj, "prefix_length", iapd->prefix_length);
         cJSON_AddNumberToObject(iapd_obj, "preferred_lifetime", iapd->preferredlifetime);
         cJSON_AddNumberToObject(iapd_obj, "valid_lifetime", iapd->validlifetime);
