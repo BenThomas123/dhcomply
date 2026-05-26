@@ -148,6 +148,8 @@ typedef struct config
     bool pd;
     uint32_t t1;
     uint32_t t2;
+    char *ianaIaid;
+    char *iapdIaid;
 } config_t;
 
 typedef struct IANA

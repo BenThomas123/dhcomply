@@ -1,7 +1,9 @@
 #ifndef DHCOMPLYLIFECYCLE_H
 #define DHCOMPLYLIFECYCLE_H
 
-#include "dhcomplyMessageFunctions.h"
+#include "dhcomplyBuildMessageFunctions.h"
+#include "dhcomplyParseMessageFunctions.h"
+#include "dhcomplySendMessageFunctions.h"
 
 void statefulLifeCycle(config_t *, char *, int, char *);
 void statelessLifeCycle(config_t *, char *, int);

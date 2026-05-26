@@ -1,6 +1,5 @@
 #include "dhcomplyStandardLibrary.h"
 
-// stdlib addons
 void valid_file_pointer(FILE *fp)
 {
     if (fp == NULL)
@@ -144,12 +143,14 @@ char *append_ipv6_address_if_unique(const char *addr_list, const char *new_addr)
 char *format_ipv6_prefix(uint8_t prefix_len, uint128_t prefix) {
     if (prefix_len > 128) return NULL;
 
-    for (int i = 0; i < (prefix_len / 16) + 1; i++) {
-        prefix >>= 8;
+    char prefix_string[INET6_ADDRSTRLEN];
+    if (uint128_to_ipv6_str(prefix, prefix_string, sizeof(prefix_string)) != 0) {
+        return NULL;
     }
 
-    char *string = malloc(150);
-    snprintf(string, 150, "%08lX::/%hhu", prefix, prefix_len);
+    char *string = malloc(INET6_ADDRSTRLEN + 5);
+    if (!string) return NULL;
+    snprintf(string, INET6_ADDRSTRLEN + 5, "%s/%hhu", prefix_string, prefix_len);
 
     return string;
 }
@@ -180,29 +181,9 @@ void create_config_file() {
     fclose(fp);
 }
 
-void create_IA_file() {
-    FILE *fp = fopen("/etc/dhcomplyIA.conf", "wx");
-    if (fp == NULL) {
-        return;
-    }
-
-    fseek(fp, 0, SEEK_END);
-    long size = ftell(fp);
-
-    if (!size) {
-        uint32_t iana = rand() % 0xFFFFFFFF;
-        uint32_t iapd = rand() % 0xFFFFFFFF;
-
-        fprintf(fp, "%X\n", iana);
-        fprintf(fp, "%X\n", iapd);
-    }
-    fclose(fp);
-}
-
 void init_dhcomply() {
     randomize();
     create_config_file();
-    create_IA_file();
 }
 
 void randomize () {

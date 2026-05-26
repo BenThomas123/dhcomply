@@ -1,11 +1,4 @@
 #include "dhcomplyDHCPv6Functions.h"
-#include <errno.h>
-#include <limits.h>
-#include <sys/wait.h>
-
-#ifndef PATH_MAX
-#define PATH_MAX 4096
-#endif
 
 config_t *read_config_file(char *iaString) {
     config_t *config_file = malloc(sizeof(config_t));
@@ -19,6 +12,9 @@ config_t *read_config_file(char *iaString) {
     config_file->pd = false;
 	config_file->t1 = 0;
 	config_file->t2 = 0;
+    config_file->ianaIaid = NULL;
+    config_file->iapdIaid = NULL;
+
     bool oppositeMaxRTRequest = false;
 
     FILE *cfp = fopen(CONFIG_FILE_PATH, "r");
@@ -34,14 +30,11 @@ config_t *read_config_file(char *iaString) {
 
         if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_RENEW, line)) {
             config_file->reconfigure = 5;
-        }
-        else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_REBIND, line)) {
+        } else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_REBIND, line)) {
             config_file->reconfigure = 6;
-        }
-        else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_INFO_REQ, line)) {
+        } else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_INFO_REQ, line)) {
             config_file->reconfigure = 7;
-        }
-        else if (!strcmp(RAPID_COMMIT_LINE, line)) {
+        } else if (!strcmp(RAPID_COMMIT_LINE, line)) {
             config_file->rapid_commit = true;
         } else if (!strcmp(substring(line, 0, strlen(T1_CONFIG_FILE_LINE)), T1_CONFIG_FILE_LINE)) {
 			config_file->t1 = strtol(substring_to_end(line, strlen(T1_CONFIG_FILE_LINE)), NULL, 10);
@@ -51,6 +44,10 @@ config_t *read_config_file(char *iaString) {
             oppositeMaxRTRequest = true;
         } else if (strcmp(iaString, STATELESS_STRING) && !strcmp(line, ORO[ORO_ARRAY_LENGTH + 1])) {
             oppositeMaxRTRequest = true;
+        } else if (!strcmp(substring(line, 0, strlen("IANA IAID: ")), "IANA IAID: ")) {
+            config_file->ianaIaid = substring_to_end(line, strlen("IANA IAID: "));
+        } else if (!strcmp(substring(line, 0, strlen("IAPD IAID: ")), "IAPD IAID: ")) {
+            config_file->iapdIaid = substring_to_end(line, strlen("IAPD IAID: "));
         }
 
         for (int i = 0; i < ORO_ARRAY_LENGTH; i++) {
@@ -100,48 +97,12 @@ config_t *read_config_file(char *iaString) {
     return config_file;
 }
 
-uint32_t readIANA() {
-    FILE *fp = fopen("/etc/dhcomplyIA.conf", "r");
-    valid_file_pointer(fp);
-
-	char IA[9];
-	if (fgets(IA, sizeof(IA), fp)) {
-    	size_t len = strlen(IA);
-    	if (len > 0 && IA[len - 1] == '\n') {
-        	IA[len - 1] = '\0';
-    	}
-
-    	uint32_t num = strtol(IA, NULL, 16);
-        fclose(fp);
-		return num;
-	}
-
-    fclose(fp);
-
-    return 0;
-}
-
-uint32_t readIAPD() {
-    FILE *fp = fopen("/etc/dhcomplyIA.conf", "r");
-    valid_file_pointer(fp);
-
-	char IA[17];
-	fgets(IA, sizeof(IA), fp);
-	if (fgets(IA, sizeof(IA), fp)) {
-        fprintf(stderr, "Reading IAPD from file: %s\n", IA);
-        size_t len = strlen(IA);
-    	if (len > 0 && IA[len - 1] == '\n') {
-        	IA[len - 1] = '\0';
-    	}
-
-    	uint32_t num = strtol(IA, NULL, 16);
-		fclose(fp);
-		return num;
-	}
-
-    fclose(fp);
-
-    return 0;
+uint32_t getIAID(char *iaidString) {
+    if (iaidString) {
+        return strtoul(iaidString, NULL, 16);
+    } else {
+        return rand() % FOUR_BYTE_MASK;
+    }
 }
 
 int check_for_message(int sockfd, uint8_t *packet, int type) {
@@ -253,7 +214,7 @@ uint8_t get_option_count(uint8_t *packet, unsigned long int size, uint8_t *iaopt
         option_code |= packet[index + 1];
         if (option_code == IA_NA_OPTION_CODE|| option_code == IA_PD_OPTION_CODE) {
             option_count++;
-            (*iaoption_count)++;
+            (*iaoptioncount)++;
         }
         uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT;
         option_length |= packet[index + 3];
@@ -276,6 +237,9 @@ int get_option_index(uint8_t *packet, unsigned long int size, uint8_t desired_op
         option_length |= packet[index + 3];
         index += (option_length + 4);
         option_index++;
+        if (option_code == IA_NA_OPTION_CODE || option_code == IA_PD_OPTION_CODE) {
+            option_index++;
+        }
     }
 
     return -1;
@@ -307,7 +271,13 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
         cJSON_AddStringToObject(iapd_obj, "iaid", hexstring2);
         cJSON_AddNumberToObject(iapd_obj, "t1", iapd->t1);
         cJSON_AddNumberToObject(iapd_obj, "t2", iapd->t2);
-        cJSON_AddStringToObject(iapd_obj, "prefix", format_ipv6_prefix(iapd->prefix_length, iapd->prefix));
+        char *prefix_string = format_ipv6_prefix(iapd->prefix_length, iapd->prefix);
+        if (!prefix_string) {
+            cJSON_Delete(root);
+            return -1;
+        }
+        cJSON_AddStringToObject(iapd_obj, "prefix", prefix_string);
+        free(prefix_string);
         cJSON_AddNumberToObject(iapd_obj, "prefix_length", iapd->prefix_length);
         cJSON_AddNumberToObject(iapd_obj, "preferred_lifetime", iapd->preferredlifetime);
         cJSON_AddNumberToObject(iapd_obj, "valid_lifetime", iapd->validlifetime);
@@ -339,16 +309,64 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
     return 0;
 }
 
-uint8_t renewsAllowed(uint32_t t1minust2) {
-    uint8_t index = 0;
-    uint32_t elapsed_time = renew_upper[index] / MILLISECONDS_IN_SECONDS;
+void delete_lease_file(char *ifname) {
+    char filename[512];
+    snprintf(filename, sizeof(filename), "/var/lib/dhcp/lease_%s.json", ifname);
+    remove(filename);
+}
 
-    while (elapsed_time < t1minust2 && index < 9) {
-        index++;
-        elapsed_time += (renew_upper[index] / MILLISECONDS_IN_SECONDS);
-    } 
+void remove_message_addresses(dhcpv6_message_t *message, const char *ifname) {
+    for (int i = 0; i < message->option_count; i++) {
+        if (message->option_list[i].option_code != IA_ADDR_OPTION_CODE) {
+            continue;
+        }
 
-    return index;
+        char address[INET6_ADDRSTRLEN];
+        if (uint128_to_ipv6_str(message->option_list[i].ia_address_t.ipv6_address,
+                                address, sizeof(address)) != 0) {
+            continue;
+        }
+
+        char address_with_prefix[INET6_ADDRSTRLEN + 5];
+        snprintf(address_with_prefix, sizeof(address_with_prefix), "%s/128", address);
+
+        pid_t pid = fork();
+        if (pid < 0) {
+            continue;
+        }
+
+        if (pid == 0) {
+            FILE *dev_null = fopen("/dev/null", "w");
+            if (dev_null) {
+                dup2(fileno(dev_null), STDOUT_FILENO);
+                dup2(fileno(dev_null), STDERR_FILENO);
+                fclose(dev_null);
+            }
+
+            execlp("sudo", "sudo", "ip", "-6", "addr", "del", address_with_prefix,
+                   "dev", ifname, (char *)NULL);
+            _exit(127);
+        }
+
+        waitpid(pid, NULL, 0);
+    }
+}
+
+uint8_t renewsAllowed(uint32_t t2minust1) {
+    uint8_t count = 0;
+    uint64_t elapsed_time = 0;
+    uint64_t renew_window = (uint64_t)t2minust1 * MILLISECONDS_IN_SECONDS;
+
+    while (count < RENEW_RETRANS_COUNT) {
+        if (elapsed_time + renew_upper[count] >= renew_window) {
+            break;
+        }
+
+        elapsed_time += renew_upper[count];
+        count++;
+    }
+
+    return count;
 }
 
 void waitToRetransmit(uint64_t retrans_time) {

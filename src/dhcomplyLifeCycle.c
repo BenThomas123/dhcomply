@@ -1,5 +1,35 @@
 #include "dhcomplyLifeCycle.h"
 
+static bool is_matching_reply(uint8_t *packet, int packet_size, dhcpv6_message_t *request) {
+    if (packet_size < 4 ||
+        valid_transaction_id(packet[1], packet[2], packet[3]) != request->transaction_id) {
+        return false;
+    }
+
+    bool has_client_id = false;
+    bool has_server_id = false;
+    int index = 4;
+
+    while (index + 4 <= packet_size) {
+        uint16_t option_code = packet[index] << ONE_BYTE_SHIFT | packet[index + 1];
+        uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT | packet[index + 3];
+
+        if (index + option_length + 4 > packet_size) {
+            return false;
+        }
+
+        if (option_code == CLIENT_ID_OPTION_CODE) {
+            has_client_id = true;
+        } else if (option_code == SERVER_ID_OPTION_CODE) {
+            has_server_id = true;
+        }
+
+        index += option_length + 4;
+    }
+
+    return index == packet_size && has_client_id && has_server_id;
+}
+
 void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia) {
     restart:
     dhcpv6_message_t *firstSol = buildSolicit(config_file, ifname);
@@ -131,15 +161,19 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
 
                             if (check_dad_failure(ifname)) {
                                 dhcpv6_message_t *decline = buildDecline(reply_message, config_file);
+                                remove_message_addresses(decline, ifname);
+                                delete_lease_file(ifname);
                                 sendDecline(decline, sockfd, ifname, 0);
 
                                 int reply_check =
                                     check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
+                                bool decline_reply_received =
+                                    is_matching_reply(reply_packet, reply_check, decline);
 
                                 elapse_time = 0;
                                 int declineRetransmission = 0;
 
-                                while (!reply_check &&
+                                while (!decline_reply_received &&
                                        declineRetransmission < DECLINE_RETRANS_COUNT) {
                                     uint32_t retrans_time_decline =
                                         decline_lower[declineRetransmission] +
@@ -150,25 +184,15 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                     elapse_time += retrans_time_decline;
                                     waitToRetransmit(retrans_time_decline);
 
-                                    decline = buildDecline(reply_message, config_file);
                                     sendDecline(decline, sockfd, ifname, elapse_time / 10);
 
                                     reply_check =
                                         check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
+                                    decline_reply_received =
+                                        is_matching_reply(reply_packet2, reply_check, decline);
 
                                     declineRetransmission++;
                                 }
-
-                            	while (time(NULL) - startLease < valid_lifetime) {
-                                	usleep(MICROSECONDS_IN_MILLISECONDS);
-                            	}
-                                char cmd2[512];
-                                snprintf(cmd2, "chmod +x rm -f /var/lib/dhcp/%s", "");
-                                system(cmd2);
-
-                                char cmd[512];
-                                snprintf(cmd, "rm -f/var/lib/dhcp/lease_%s.json", ifname);
-                                system(cmd);
 
                                 goto restart;
                             }
@@ -205,10 +229,10 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                 elapse_time += retrans_time_renew;
                                 waitToRetransmit(retrans_time_renew);
 
-                                if (retrans_time_renew < 655360) {
+                                if (elapse_time < 655350) {
                                     sendRenew(renew, sockfd, ifname, elapse_time / 10);
                                 } else {
-                                    sendRenew(renew, sockfd, ifname, 65536);
+                                    sendRenew(renew, sockfd, ifname, 65535);
                                 }
 
                                 reply_check2 =
@@ -230,13 +254,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                 }
 
                                 if (time(NULL) - startLease >= valid_lifetime) {
-                                    char cmd2[512];
-                                    snprintf(cmd2, "chmod +x rm -f /var/lib/dhcp/%s", "");
-                                    system(cmd2);
-
-                                    char cmd[512];
-                                    snprintf(cmd, "rm -f /var/lib/dhcp/lease_%s.json", ifname);
-                                    system(cmd);
+                                    delete_lease_file(ifname);
 
                                     goto restart;
                                 }
@@ -261,7 +279,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                     elapse_time += retrans_time_rebind;
                                     waitToRetransmit(retrans_time_rebind);
 									if (time(NULL) - startLease < valid_lifetime) {
-		                                if (retrans_time_rebind < 655350) {
+		                                if (elapse_time < 655350) {
                                         	sendRebind(rebind, sockfd, ifname, elapse_time / 10);
         	                            } else {
             	                            sendRebind(rebind, sockfd, ifname, 65535);
@@ -281,14 +299,12 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                 }
 
                                 if (!reply_check) {
-                                    char cmd2[512];
-                                    snprintf(cmd2, "chmod +x rm -f /var/lib/dhcp/%s", "");
-                                    system(cmd2);
 
-                                    char cmd[512];
-                                    snprintf(cmd, "rm -f /var/lib/dhcp/lease_%s.json", ifname);
-                                    system(cmd);
+                                    remove_message_addresses(rebind, ifname);
+                                    delete_lease_file(ifname);
 
+                                    retransmissionSolicit = 0;
+                                    elapse_time = 0;
                                     goto restart;
                                 } else {
                                     reply_message =
@@ -336,12 +352,11 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
 }
 
 void statelessLifeCycle(config_t *config_file, char *ifname, int sockfd) {
-    restart:
+    restartStateless:
     uint64_t inf_max_rt = 3600 * MILLISECONDS_IN_SECONDS;
     uint32_t refresh_time = 86400 * MILLISECONDS_IN_SECONDS;
 
     while (true) {
-        restartStateless:
         dhcpv6_message_t *firstInfoReq = buildInformationRequest(config_file, ifname);
         sendInformationRequest(firstInfoReq, sockfd, ifname, 0);
 
