@@ -119,6 +119,7 @@ int check_for_message(int sockfd, uint8_t *packet, int type) {
         uint8_t buffer[MAX_PACKET_SIZE];
         ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
         memcpy(packet, buffer, len);
+        fprintf(stderr, " %zd\n", len);
         if (buffer[0] == type) {
             return len;
         }
@@ -214,7 +215,7 @@ uint8_t get_option_count(uint8_t *packet, unsigned long int size, uint8_t *iaopt
         option_code |= packet[index + 1];
         if (option_code == IA_NA_OPTION_CODE|| option_code == IA_PD_OPTION_CODE) {
             option_count++;
-            (*iaoptioncount)++;
+            (*iaoption_count)++;
         }
         uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT;
         option_length |= packet[index + 3];
@@ -433,7 +434,7 @@ void waitToRetransmit(uint64_t retrans_time) {
 	}
 }
 
-static bool is_matching_reply(uint8_t *packet, int packet_size, dhcpv6_message_t *request) {
+bool is_matching_reply(uint8_t *packet, int packet_size, dhcpv6_message_t *request) {
     if (packet_size < 4 ||
         valid_transaction_id(packet[1], packet[2], packet[3]) != request->transaction_id) {
         return false;

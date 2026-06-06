@@ -6,7 +6,7 @@
 #include "dhcomplySendMessageFunctions.h"
 
 void statefulLifeCycle(config_t *, char *, int, char *);
-void confirmLifeCycle(config_t *, char *, int);
+int confirmLifeCycle(config_t *, char *);
 void statelessLifeCycle(config_t *, char *, int);
 
 #endif //DHCOMPLYLIFECYCLE_H

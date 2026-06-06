@@ -48,7 +48,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
         switch (option_code) {
 
-            case STATUS_CODE_OPTION_CODE:
+            case STATUS_CODE_OPTION_CODE: {
 
                 uint8_t status_code = packet[index + 5];
 
@@ -59,6 +59,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
                 }
 
                 break;
+            }
 
             case SERVER_ID_OPTION_CODE:
 
@@ -273,7 +274,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
                 break;
 
-            case DOMAIN_SEARCH_LIST_OPTION_CODE:
+            case DOMAIN_SEARCH_LIST_OPTION_CODE: {
 
                 char *DSL_string = (char *)calloc(option_length, sizeof(char));
 
@@ -288,6 +289,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
                 advertise_message->option_list[option_index].domain_search_list_t.search_list = DSL_string;
 
                 break;
+            }
 
             case SOL_MAX_RT_OPTION_CODE: {
 
@@ -403,19 +405,24 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
         reply->option_list[option_index].option_length = option_length;
 
+        fprintf(stderr, "option code: %d bad reply: %d\n", option_code, badReply);
+
         switch (option_code) {
 
-            case STATUS_CODE_OPTION_CODE:
+            case STATUS_CODE_OPTION_CODE: {
 
                 uint8_t status_code = packet[index + 5];
 
                 if (status_code) {
-
                     badReply = true;
-
+                    fprintf(stderr, "reply failed: status code\n");
+                    if (status_code == NOTONLINK_STATUS_CODE) {
+                        return NULL;
+                    }
                 }
 
                 break;
+            }
 
             case SERVER_ID_OPTION_CODE:
 
@@ -453,6 +460,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 reply->option_list[option_index].client_id_t.duid.duid_type = packet[index + 5] & ONE_BYTE_MASK;
 
                 if (reply->option_list[option_index].client_id_t.duid.duid_type != request->option_list[option_index].client_id_t.duid.duid_type) {
+                    fprintf(stderr, "duid type did not match\n");
 
                     badReply = true;
 
@@ -465,6 +473,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 if (reply->option_list[option_index].client_id_t.duid.hw_type != request->option_list[option_index].client_id_t.duid.hw_type) {
 
                     badReply = true;
+                    fprintf(stderr, "reply failed: duid type\n");
 
                 }
 
@@ -477,6 +486,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                     reply->option_list[option_index].client_id_t.duid.mac[x] = packet[index + (x + 8)];
 
                     if (reply->option_list[option_index].client_id_t.duid.mac[x] != request->option_list[option_index].client_id_t.duid.mac[x]) {
+                        fprintf(stderr, "reply failed: client id did not match\n");
 
                         badReply = true;
 
@@ -562,16 +572,18 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 iana->preferredlifetime = reply->option_list[option_index].ia_address_t.preferred_lifetime;
 
-                if (iana->preferredlifetime > iana->validlifetime) {badReply = true; }
+                if (iana->preferredlifetime > iana->validlifetime) {
+                    fprintf(stderr, "reply failed: valid lifetime not greater than prefered\n");
+                    badReply = true; }
 
                 if (request->option_list[option_index].ia_address_t.ipv6_address !=
 
                     reply->option_list[option_index].ia_address_t.ipv6_address &&
 
-                    request->message_type != REQUEST_MESSAGE_TYPE) {
+                    (request->message_type != REQUEST_MESSAGE_TYPE && request->message_type != REBIND_MESSAGE_TYPE) ) {
 
+                    fprintf(stderr, "reply failed: because expected request \n");
                     badReply = true;
-
                 }
 
                 char cmd2[512];
@@ -581,15 +593,15 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 uint128_to_ipv6_str(address, address_string2, sizeof(address_string2));
 
 				sprintf(cmd2, "sudo ip -6 addr del %s/%d dev %s 2>/dev/null", address_string2, 128, iface);
+				system(cmd2);
 
                 char cmd[512];
 
                 char address_string[INET6_ADDRSTRLEN];
 
                 uint128_to_ipv6_str(address, address_string, sizeof(address_string));
-
                 sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, reply->option_list[option_index].ia_address_t.preferred_lifetime, reply->option_list[option_index].ia_address_t.valid_lifetime);
-
+				system(cmd);
                 iana->address = strdup(address_string);
 
                 valid_memory_allocation(iana->address);
@@ -618,7 +630,10 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 iapd->t2 = reply->option_list[option_index].ia_pd_t.t2;
 
-                if (iapd->t2 < iapd->t1 && iapd->t2 != 0 && iapd->t1 != 0) { badReply = true; }
+                if (iapd->t2 < iapd->t1 && iapd->t2 != 0 && iapd->t1 != 0) {
+                    badReply = true;
+                    fprintf(stderr, "reply failed for some reason: status code");
+                }
 
                 option_index++;
 
@@ -637,6 +652,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                     status_code |= packet[index + 21];
 
                     if (status_code) {
+                        fprintf(stderr, "reply failed for some reason: status code");
 
                         badReply = true;
 
@@ -684,10 +700,10 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                     reply->option_list[option_index].ia_prefix_t.ipv6_prefix
 
-                    && request->message_type != REQUEST_MESSAGE_TYPE) {
+                    && (request->message_type != REQUEST_MESSAGE_TYPE && request->message_type != REBIND_MESSAGE_TYPE) ) {
 
                     badReply = true;
-
+                    fprintf(stderr, "reply failed for some reason");
                 }
 
                 iapd->prefix = reply->option_list[option_index].ia_prefix_t.ipv6_prefix;
@@ -733,6 +749,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 char cmd24[strlen(cumulative_string2) + strlen(iface) + 30];
 
                 sprintf(cmd24, "sudo resolvectl dns %s %s\n", iface, cumulative_string2);
+				system(cmd24);
 
                 reply->option_list[option_index].dns_recursive_name_server_t.dns_servers = (uint8_t *)calloc(option_length, sizeof(uint8_t));
 
@@ -795,6 +812,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 char cmd_23[strlen(domain_search_list) + strlen(iface) + 25];
 
                 sprintf(cmd_23, "sudo resolvectl domain %s %s\n", iface, domain_search_list);
+				system(cmd_23);
 
                 char *DSL_string = (char *)calloc(option_length, sizeof(char));
 
@@ -848,13 +866,18 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
     }
 
-    if (options_included_total != 11 &&
+    fprintf(stdout, "\nafter loop badreply: %d\n", badReply);
+    if (
+        (options_included_total != 3 && request->message_type == CONFIRM_MESSAGE_TYPE) &&
 
-        options_included_total != 54 &&
+        options_included_total != 62 &&
 
-        options_included_total != 62) {
+        options_included_total != 11 &&
 
-        badReply= true;
+        options_included_total != 54) {
+
+        fprintf(stderr, "reply failed: missing required options\n");
+        badReply = true;
 
     }
 
@@ -868,9 +891,15 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
         } else if (ianaFound && iapdFound) {
             writeLease(iana, iapd, iface, server_duid, server_duid_mac_length);
         } else {
-			reply->valid = false;
+            if (!(options_included_total == 3 && request->message_type == CONFIRM_MESSAGE_TYPE)) {
+                fprintf(stderr, "reply failed\n");
+                reply->valid = false;
+            }
 		}
     }
+    fprintf(stdout, "\nafter loop badreply: %d\n", badReply);
+    fprintf(stdout, "\nafter loop badreply: %d\n", reply->valid);
+
     return reply;
 
 }
@@ -917,7 +946,7 @@ dhcpv6_message_t *parseStatelessReply(uint8_t *packet, dhcpv6_message_t *request
 
         switch (option_code) {
 
-            case STATUS_CODE_OPTION_CODE:
+            case STATUS_CODE_OPTION_CODE: {
 
                 uint8_t status_code = packet[index + 5];
 
@@ -928,6 +957,7 @@ dhcpv6_message_t *parseStatelessReply(uint8_t *packet, dhcpv6_message_t *request
                 }
 
                 break;
+            }
 
             case SERVER_ID_OPTION_CODE:
 
@@ -1138,7 +1168,7 @@ dhcpv6_message_t *parseStatelessReply(uint8_t *packet, dhcpv6_message_t *request
 
                 break;
 
-            case INFORMATION_REFRESH_OPTION_CODE:
+            case INFORMATION_REFRESH_OPTION_CODE: {
 
                 uint32_t refresh_time = 0;
 
@@ -1153,6 +1183,7 @@ dhcpv6_message_t *parseStatelessReply(uint8_t *packet, dhcpv6_message_t *request
                 reply->option_list[option_index].information_refresh_time_t.information_refresh_time = refresh_time;
 
                 break;
+            }
 
             default:
 

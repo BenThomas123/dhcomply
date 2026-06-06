@@ -17,6 +17,7 @@ int get_option_index(uint8_t *, unsigned long int, uint8_t);
 int writeLease(IANA_t *, IAPD_t *, const char *, const duid_ll_t *, size_t);
 void delete_lease_file(char *);
 void remove_message_addresses(dhcpv6_message_t *, const char *);
+bool is_matching_reply(uint8_t *, int, dhcpv6_message_t *);
 uint8_t renewsAllowed(uint32_t);
 uint32_t getIAID(char *);
 void waitToRetransmit(uint64_t);

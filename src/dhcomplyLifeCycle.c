@@ -63,14 +63,16 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                     dhcpv6_message_t *reply_message =
                         parseReply(reply_packet, request, ifname, reply_check);
 
-                    if (!reply_message->valid) {
+                    if (reply_message == NULL) {
+                        return;
+                    } else if (!reply_message->valid) {
                         continue;
                     } else {
                         while (true) {
                             time_t startLease = time(NULL);
 
-                            uint8_t na_index = 0;
-                            uint8_t pd_index = 0;
+                            int na_index = 0;
+                            int pd_index = 0;
 
                             int t1 = 0;
                             int t2 = 0;
@@ -183,7 +185,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                 usleep(MICROSECONDS_IN_MILLISECONDS);
                             }
 
-                            dhcpv6_message_t *renew = buildRenew(reply_message, config_file);
+                            dhcpv6_message_t *renew = buildRenew(reply_message, request, config_file);
                             sendRenew(renew, sockfd, ifname, 0);
 
                             int reply_check2 =
@@ -354,271 +356,240 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
     }
 }
 
-void confirmLifeCycle(config_t *config_file, char *ifname, int sockfd) {
+int confirmLifeCycle(config_t *config_file, char *ifname) {
 
+    if (!leaseFileExists(ifname)) {
+        fprintf(stderr, "lease file does not exist\n");
+        return 1;
+    }
+
+    fprintf(stdout, "here after lease file check\n");
     uint8_t retransmissionConfirm = 0;
     uint32_t elapse_time = 0;
 
-    dhcpv6_message_t *firstConfirm = buildConfirm(config_file, ifname);
-    sendConfirm(firstConfirm, sockfd, ifname, retransmissionConfirm);
+    uint32_t t1 = 0;
+    uint32_t t2 = 0;
+    uint32_t valid_lifetime = 0;
+    dhcpv6_message_t *firstConfirm = buildConfirm(config_file, ifname, &t1, &t2, &valid_lifetime);
 
-    uint8_t *reply_packet = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
-    int reply_check = check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
+    int a = copyLeaseFileToConfirmTemp(ifname);
+    delete_lease_file(ifname);
+    while (!dhcpv6_client_port_available()) {}
+    fprintf(stdout, "other process shutdown, %d\n", a);
+    int b = moveConfirmTempLeaseFile(ifname);
+    fprintf(stdout, "moved file, %d\n", b);
 
-    if (reply_check) {
-        dhcpv6_message_t *reply =
-            parseReply(reply_packet, firstConfirm, reply_check);
-        if (!reply->valid) {
-            continue;
-        } else {
-            while (true) {
-                time_t startLease = time(NULL);
+    int sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+    valid_socket(sockfd);
 
-                uint8_t na_index = 0;
-                uint8_t pd_index = 0;
+    sendConfirm(firstConfirm, sockfd, ifname, elapse_time);
 
-                int t1 = 0;
-                int t2 = 0;
-                int valid_lifetime = 0;
+    fprintf(stderr, "entering send confirm");
+    while (retransmissionConfirm < CONFIRM_RETRANS_COUNT) {
+        uint8_t *reply_packet = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
+        int reply_check = check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
+        if (reply_check) {
+            fprintf(stderr, "reply receieved");
+            dhcpv6_message_t *reply_message =
+                parseReply(reply_packet, firstConfirm, ifname, reply_check);
+            if (reply_message == NULL) {
+                return 1;
+            } else if (!reply_message->valid) {
+                fprintf(stderr, "invalid reply \n");
+                continue;
+            } else {
+                fprintf(stderr, "valid reply \n");
+                while (true) {
+                    fprintf(stdout, "t1: %d t2: %d vl: %d\n", t1, t2, valid_lifetime);
+                    time_t startLease = time(NULL);
 
-                if (!strcmp("NP", ia)) {
-                    na_index = get_option_index(reply_packet, reply_check, IA_NA_OPTION_CODE);
-                    pd_index = get_option_index(reply_packet, reply_check, IA_PD_OPTION_CODE);
+                    uint8_t *reply_packet2 =
+                        (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
 
-                    t1 = min(
-                        reply_message->option_list[na_index].ia_na_t.t1,
-                        reply_message->option_list[pd_index].ia_pd_t.t1
-                    );
+                    if (check_dad_failure(ifname)) {
+                        dhcpv6_message_t *decline = buildDecline(reply_message, config_file);
+                        remove_message_addresses(decline, ifname);
+                        delete_lease_file(ifname);
+                        sendDecline(decline, sockfd, ifname, 0);
 
-                    t2 = min(
-                        reply_message->option_list[na_index].ia_na_t.t2,
-                        reply_message->option_list[pd_index].ia_pd_t.t2
-                    );
+                        int reply_check =
+                            check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
+                        bool decline_reply_received =
+                            is_matching_reply(reply_packet, reply_check, decline);
 
-                    valid_lifetime = min(
-                        reply_message->option_list[na_index + 1].ia_address_t.valid_lifetime,
-                        reply_message->option_list[pd_index + 1].ia_prefix_t.valid_lifetime
-                    );
-                } else if (!strcmp("N", ia)) {
-                    na_index = get_option_index(reply_packet, reply_check, IA_NA_OPTION_CODE);
+                        elapse_time = 0;
+                        int declineRetransmission = 0;
 
-                    t1 = reply_message->option_list[na_index].ia_na_t.t1;
-                    t2 = reply_message->option_list[na_index].ia_na_t.t2;
-                    valid_lifetime =
-                        reply_message->option_list[na_index + 1].ia_address_t.valid_lifetime;
-                } else {
-                    pd_index = get_option_index(reply_packet, reply_check, IA_PD_OPTION_CODE);
+                        while (!decline_reply_received &&
+                               declineRetransmission < DECLINE_RETRANS_COUNT) {
+                            uint32_t retrans_time_decline =
+                                decline_lower[declineRetransmission] +
+                                (rand() %
+                                 (decline_upper[declineRetransmission] -
+                                  decline_lower[declineRetransmission]));
 
-                    t1 = reply_message->option_list[pd_index].ia_pd_t.t1;
-                    t2 = reply_message->option_list[pd_index].ia_pd_t.t2;
-                    valid_lifetime =
-                        reply_message->option_list[pd_index + 1].ia_prefix_t.valid_lifetime;
-                }
+                            elapse_time += retrans_time_decline;
+                            waitToRetransmit(retrans_time_decline);
 
-                if (t1 == 0) {
-                    if (config_file->t1 == 0) {
-                        t1 = valid_lifetime * .5;
-                    } else {
-                        t1 = config_file->t1;
-                    }
-                }
+                            sendDecline(decline, sockfd, ifname, elapse_time / 10);
 
-                if (t2 == 0) {
-                    if (config_file->t2 == 0) {
-                        t2 = valid_lifetime * .8;
-                    } else {
-                        t2 = config_file->t2;
-                    }
-                }
+                            reply_check =
+                                check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
+                            decline_reply_received =
+                                is_matching_reply(reply_packet2, reply_check, decline);
 
-                uint8_t *reply_packet2 =
-                    (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
+                            declineRetransmission++;
+                        }
 
-                if (check_dad_failure(ifname)) {
-                    dhcpv6_message_t *decline = buildDecline(reply_message, config_file);
-                    remove_message_addresses(decline, ifname);
-                    delete_lease_file(ifname);
-                    sendDecline(decline, sockfd, ifname, 0);
-
-                    int reply_check =
-                        check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
-                    bool decline_reply_received =
-                        is_matching_reply(reply_packet, reply_check, decline);
-
-                    elapse_time = 0;
-                    int declineRetransmission = 0;
-
-                    while (!decline_reply_received &&
-                           declineRetransmission < DECLINE_RETRANS_COUNT) {
-                        uint32_t retrans_time_decline =
-                            decline_lower[declineRetransmission] +
-                            (rand() %
-                             (decline_upper[declineRetransmission] -
-                              decline_lower[declineRetransmission]));
-
-                        elapse_time += retrans_time_decline;
-                        waitToRetransmit(retrans_time_decline);
-
-                        sendDecline(decline, sockfd, ifname, elapse_time / 10);
-
-                        reply_check =
-                            check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
-                        decline_reply_received =
-                            is_matching_reply(reply_packet2, reply_check, decline);
-
-                        declineRetransmission++;
+                        return 1;
                     }
 
-                    return;
-                }
-
-                while (time(NULL) - startLease < t1) {
-                    if (!leaseFileExists(ifname)) {
-                        return;
-                    }
-                    usleep(MICROSECONDS_IN_MILLISECONDS);
-                }
-
-                dhcpv6_message_t *renew = buildRenew(reply_message, config_file);
-                sendRenew(renew, sockfd, ifname, 0);
-
-                int reply_check2 =
-                    check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
-
-                if (reply_check2) {
-                    reply_message =
-                        parseReply(reply_packet2, renew, ifname, reply_check2);
-                    continue;
-                }
-
-                uint32_t retransmissionRenew = 0;
-                elapse_time = 0;
-
-                uint32_t maxRenewRetransmissions = renewsAllowed(t2 - t1);
-                reply_check2 = 0;
-
-                while (retransmissionRenew < maxRenewRetransmissions) {
-                    uint32_t retrans_time_renew =
-                        renew_lower[retransmissionRenew] +
-                        (rand() %
-                         (renew_upper[retransmissionRenew] -
-                          renew_lower[retransmissionRenew]));
-
-                    elapse_time += retrans_time_renew;
-
-                    if (!leaseFileExists(ifname)) {
-                        return;
-                    }
-
-                    waitToRetransmit(retrans_time_renew);
-
-                    if (!leaseFileExists(ifname)) {
-                        return;
-                    }
-
-                    if (elapse_time < 655350) {
-                        sendRenew(renew, sockfd, ifname, elapse_time / 10);
-                    } else {
-                        sendRenew(renew, sockfd, ifname, 65535);
-                    }
-
-                    reply_check2 =
-                        check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
-
-                    if (reply_check2 != 0) {
-                        break;
-                    }
-
-                    retransmissionRenew++;
-                }
-
-                if (retransmissionRenew == maxRenewRetransmissions) {
-                    int retransmissionRebind = 0;
-                    elapse_time = 0;
-
-                    while (time(NULL) - startLease < t2) {
+                    while (time(NULL) - startLease < t1) {
                         if (!leaseFileExists(ifname)) {
-                            return;
+                            return 0;
                         }
                         usleep(MICROSECONDS_IN_MILLISECONDS);
                     }
 
-                    if (time(NULL) - startLease >= valid_lifetime) {
-                        delete_lease_file(ifname);
+                    dhcpv6_message_t *renew = buildRenew(reply_message, firstConfirm, config_file);
+                    sendRenew(renew, sockfd, ifname, 0);
 
-                        return;
-                    }
-
-                    dhcpv6_message_t *rebind =
-                        buildRebind(reply_message, config_file);
-
-                    sendRebind(rebind, sockfd, ifname, 0);
-
-                    reply_check =
+                    int reply_check2 =
                         check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
 
-                    while (retransmissionRebind < REBIND_RETRANS_COUNT &&
-                           time(NULL) - startLease < valid_lifetime &&
-                           !reply_check) {
-                        uint32_t retrans_time_rebind =
-                            rebind_lower[retransmissionRebind] +
-                            (rand() %
-                             (rebind_upper[retransmissionRebind] -
-                              rebind_lower[retransmissionRebind]));
+                    if (reply_check2) {
+                        reply_message =
+                            parseReply(reply_packet2, renew, ifname, reply_check2);
+                        continue;
+                    }
 
-                        elapse_time += retrans_time_rebind;
-                        waitToRetransmit(retrans_time_rebind);
-                        if (time(NULL) - startLease < valid_lifetime) {
-                            if (elapse_time < 655350) {
-                                sendRebind(rebind, sockfd, ifname, elapse_time / 10);
-                            } else {
-                                sendRebind(rebind, sockfd, ifname, 65535);
-                            }
+                    uint32_t retransmissionRenew = 0;
+                    elapse_time = 0;
+
+                    uint32_t maxRenewRetransmissions = renewsAllowed(t2 - t1);
+                    reply_check2 = 0;
+
+                    while (retransmissionRenew < maxRenewRetransmissions) {
+                        uint32_t retrans_time_renew =
+                            renew_lower[retransmissionRenew] +
+                            (rand() %
+                             (renew_upper[retransmissionRenew] -
+                              renew_lower[retransmissionRenew]));
+
+                        elapse_time += retrans_time_renew;
+
+                        if (!leaseFileExists(ifname)) {
+                            return 0;
+                        }
+
+                        waitToRetransmit(retrans_time_renew);
+
+                        if (!leaseFileExists(ifname)) {
+                            return 0;
+                        }
+
+                        if (elapse_time < 655350) {
+                            sendRenew(renew, sockfd, ifname, elapse_time / 10);
                         } else {
+                            sendRenew(renew, sockfd, ifname, 65535);
+                        }
+
+                        reply_check2 =
+                            check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
+
+                        if (reply_check2 != 0) {
                             break;
                         }
+
+                        retransmissionRenew++;
+                    }
+
+                    if (retransmissionRenew == maxRenewRetransmissions) {
+                        int retransmissionRebind = 0;
+                        elapse_time = 0;
+
+                        while (time(NULL) - startLease < t2) {
+                            if (!leaseFileExists(ifname)) {
+                                return 0;
+                            }
+                            usleep(MICROSECONDS_IN_MILLISECONDS);
+                        }
+
+                        if (time(NULL) - startLease >= valid_lifetime) {
+                            delete_lease_file(ifname);
+                            return 1;
+                        }
+
+                        dhcpv6_message_t *rebind =
+                            buildRebind(reply_message, config_file);
+
+                        sendRebind(rebind, sockfd, ifname, 0);
 
                         reply_check =
                             check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
 
-                        if (reply_check) {
-                            break;
+                        while (retransmissionRebind < REBIND_RETRANS_COUNT &&
+                               time(NULL) - startLease < valid_lifetime &&
+                               !reply_check) {
+                            uint32_t retrans_time_rebind =
+                                rebind_lower[retransmissionRebind] +
+                                (rand() %
+                                 (rebind_upper[retransmissionRebind] -
+                                  rebind_lower[retransmissionRebind]));
+
+                            elapse_time += retrans_time_rebind;
+                            waitToRetransmit(retrans_time_rebind);
+                            if (time(NULL) - startLease < valid_lifetime) {
+                                if (elapse_time < 655350) {
+                                    sendRebind(rebind, sockfd, ifname, elapse_time / 10);
+                                } else {
+                                    sendRebind(rebind, sockfd, ifname, 65535);
+                                }
+                            } else {
+                                break;
+                            }
+
+                            reply_check =
+                                check_for_message(sockfd, reply_packet2, REPLY_MESSAGE_TYPE);
+
+                            if (reply_check) {
+                                break;
+                            }
+
+                            retransmissionRebind++;
                         }
 
-                        retransmissionRebind++;
-                    }
+                        if (!reply_check) {
+                            remove_message_addresses(rebind, ifname);
+                            delete_lease_file(ifname);
 
-                    if (!reply_check) {
-                        remove_message_addresses(rebind, ifname);
-                        delete_lease_file(ifname);
-
-                        return;
+                            return 1;
+                        } else {
+                            reply_message =
+                                parseReply(reply_packet2, rebind, ifname, reply_check);
+                            continue;
+                        }
                     } else {
                         reply_message =
-                            parseReply(reply_packet2, rebind, ifname, reply_check);
+                            parseReply(reply_packet2, renew, ifname, reply_check);
                         continue;
                     }
-                } else {
-                    reply_message =
-                        parseReply(reply_packet2, renew, ifname, reply_check);
-                    continue;
                 }
             }
-        }
-    } else {
-        while (retransmissionConfirm < Confirm_RETRANS_COUNT) {
-            uint64_t retrans_time =
-                lower_confirm[retransmissionConfirm] +
-                (rand() % (upper_confirm[retransmissionConfirm] - lower_confirm[retransmissionConfirm]));
-            waitToRetransmit(retrans_time);
-            if (elapse_time < 655350) {
+        } else {
+           uint64_t retrans_time = confirm_lower[retransmissionConfirm] +
+                    (rand() % (confirm_upper[retransmissionConfirm] - confirm_lower[retransmissionConfirm]));
+           waitToRetransmit(retrans_time);
+           if (elapse_time < 655350) {
                 sendConfirm(firstConfirm, sockfd, ifname, elapse_time / 10);
-            } else {
+           } else {
                 sendConfirm(firstConfirm, sockfd, ifname, 65535);
-                retransmissionConfirm++;
-            }
+           }
+           retransmissionConfirm++;
         }
     }
+
+    return 1;
 }
 
 void statelessLifeCycle(config_t *config_file, char *ifname, int sockfd) {

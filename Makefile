@@ -31,7 +31,7 @@ $(BINDIR):
 	@mkdir -p $(BINDIR)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c -g $< -o $@
 
 clean:
 	rm -f $(OBJS) $(TARGET) $(DAD_SCRIPT)
