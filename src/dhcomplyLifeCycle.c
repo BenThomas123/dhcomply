@@ -1,5 +1,35 @@
 #include "dhcomplyLifeCycle.h"
 
+static bool is_matching_reply(uint8_t *packet, int packet_size, dhcpv6_message_t *request) {
+    if (packet_size < 4 ||
+        valid_transaction_id(packet[1], packet[2], packet[3]) != request->transaction_id) {
+        return false;
+    }
+
+    bool has_client_id = false;
+    bool has_server_id = false;
+    int index = 4;
+
+    while (index + 4 <= packet_size) {
+        uint16_t option_code = packet[index] << ONE_BYTE_SHIFT | packet[index + 1];
+        uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT | packet[index + 3];
+
+        if (index + option_length + 4 > packet_size) {
+            return false;
+        }
+
+        if (option_code == CLIENT_ID_OPTION_CODE) {
+            has_client_id = true;
+        } else if (option_code == SERVER_ID_OPTION_CODE) {
+            has_server_id = true;
+        }
+
+        index += option_length + 4;
+    }
+
+    return index == packet_size && has_client_id && has_server_id;
+}
+
 void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia) {
     restart:
     dhcpv6_message_t *firstSol = buildSolicit(config_file, ifname);

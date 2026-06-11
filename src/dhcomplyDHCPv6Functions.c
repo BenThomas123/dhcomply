@@ -215,7 +215,7 @@ uint8_t get_option_count(uint8_t *packet, unsigned long int size, uint8_t *iaopt
         option_code |= packet[index + 1];
         if (option_code == IA_NA_OPTION_CODE|| option_code == IA_PD_OPTION_CODE) {
             option_count++;
-            (*iaoption_count)++;
+            (*iaoptioncount)++;
         }
         uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT;
         option_length |= packet[index + 3];

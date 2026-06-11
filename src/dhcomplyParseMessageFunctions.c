@@ -473,7 +473,6 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 if (reply->option_list[option_index].client_id_t.duid.hw_type != request->option_list[option_index].client_id_t.duid.hw_type) {
 
                     badReply = true;
-                    fprintf(stderr, "reply failed: duid type\n");
 
                 }
 
@@ -486,7 +485,6 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                     reply->option_list[option_index].client_id_t.duid.mac[x] = packet[index + (x + 8)];
 
                     if (reply->option_list[option_index].client_id_t.duid.mac[x] != request->option_list[option_index].client_id_t.duid.mac[x]) {
-                        fprintf(stderr, "reply failed: client id did not match\n");
 
                         badReply = true;
 
