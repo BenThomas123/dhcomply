@@ -9,6 +9,7 @@ int sendRenew(dhcpv6_message_t *, int, const char *, uint32_t);
 int sendRebind(dhcpv6_message_t *, int, const char *, uint32_t);
 int sendDecline(dhcpv6_message_t *, int, const char *, uint32_t);
 int sendConfirm(dhcpv6_message_t *, int, const char *, uint32_t);
+int sendRelease(dhcpv6_message_t *, int, const char *, uint32_t);
 int sendInformationRequest(dhcpv6_message_t *, int, const char *, uint32_t);
 
 #endif
