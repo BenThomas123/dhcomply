@@ -36,6 +36,7 @@ void valid_memory_allocation(void *);
 void valid_socket(int);
 void packet_sent_sucessfully(ssize_t);
 int get_mac_address(const char *, uint8_t[6]);
+bool dhcpv6_client_port_available();
 
 void randomize();
 void create_config_file();
@@ -48,6 +49,10 @@ void to_uppercase(char *);
 int uint128_to_ipv6_str(__uint128_t, char *, size_t);
 char *append_ipv6_address_if_unique(const char *, const char *);
 char *format_ipv6_prefix(uint8_t prefix_len, uint128_t prefix);
+bool leaseFileExists(const char *);
+int copyLeaseFileToConfirmTemp(const char *);
+int moveConfirmTempLeaseFile(const char *);
+cJSON *readLease(const char *);
 
 int max(int, int);
 int min(int, int);

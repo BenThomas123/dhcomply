@@ -32,6 +32,23 @@ void packet_sent_sucessfully(ssize_t sent) {
     }
 }
 
+bool dhcpv6_client_port_available(void) {
+    int sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+    if (sockfd < 0) {
+        return false;
+    }
+
+    struct sockaddr_in6 src = {0};
+    src.sin6_family = AF_INET6;
+    src.sin6_port = htons(546);
+    src.sin6_addr = in6addr_any;
+
+    bool available = bind(sockfd, (struct sockaddr *)&src, sizeof(src)) == 0;
+
+    close(sockfd);
+    return available;
+}
+
 // string library add ons
 char *trim(char *str)
 {
@@ -153,6 +170,161 @@ char *format_ipv6_prefix(uint8_t prefix_len, uint128_t prefix) {
     snprintf(string, INET6_ADDRSTRLEN + 5, "%s/%hhu", prefix_string, prefix_len);
 
     return string;
+}
+
+bool leaseFileExists(const char *iface_name) {
+    if (!iface_name) {
+        return false;
+    }
+
+    char filename[strlen(iface_name) + 35];
+    snprintf(filename, sizeof(filename), "/var/lib/dhcp/lease_%s.json", iface_name);
+
+    return access(filename, F_OK) == 0;
+}
+
+static int copy_file(const char *source_filename, const char *destination_filename) {
+    FILE *source = fopen(source_filename, "rb");
+    if (!source) {
+        perror("fopen source lease");
+        return -1;
+    }
+
+    FILE *destination = fopen(destination_filename, "wb");
+    if (!destination) {
+        perror("fopen destination lease");
+        fclose(source);
+        return -1;
+    }
+
+    uint8_t buffer[4096];
+    size_t bytes_read;
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), source)) > 0) {
+        if (fwrite(buffer, 1, bytes_read, destination) != bytes_read) {
+            perror("fwrite lease copy");
+            fclose(source);
+            fclose(destination);
+            return -1;
+        }
+    }
+
+    if (ferror(source)) {
+        perror("fread lease copy");
+        fclose(source);
+        fclose(destination);
+        return -1;
+    }
+
+    fclose(source);
+    fclose(destination);
+    return 0;
+}
+
+int copyLeaseFileToConfirmTemp(const char *iface_name) {
+    if (!iface_name) {
+        return -1;
+    }
+
+    char source_filename[strlen(iface_name) + 35];
+    snprintf(source_filename, sizeof(source_filename), "/var/lib/dhcp/lease_%s.json", iface_name);
+
+    char destination_filename[strlen(iface_name) + 35];
+    snprintf(destination_filename, sizeof(destination_filename), "/etc/lease_%s.json", iface_name);
+
+    fprintf(stderr, "here passed copying\n");
+
+    return copy_file(source_filename, destination_filename);
+}
+
+int moveConfirmTempLeaseFile(const char *iface_name) {
+    if (!iface_name) {
+        return -1;
+    }
+
+    char source_filename[strlen(iface_name) + 35];
+    snprintf(source_filename, sizeof(source_filename), "/etc/lease_%s.json", iface_name);
+
+    char destination_filename[strlen(iface_name) + 35];
+    snprintf(destination_filename, sizeof(destination_filename), "/var/lib/dhcp/lease_%s.json", iface_name);
+
+    if (rename(source_filename, destination_filename) == 0) {
+        return 0;
+    }
+
+    if (errno != EXDEV) {
+        perror("rename confirm temp lease");
+        return -1;
+    }
+
+    if (copy_file(source_filename, destination_filename) != 0) {
+        return -1;
+    }
+
+    if (remove(source_filename) != 0) {
+        perror("remove confirm temp lease");
+        return -1;
+    }
+
+    return 0;
+}
+
+cJSON *readLease(const char *iface_name) {
+    if (!leaseFileExists(iface_name)) {
+        return NULL;
+    }
+
+    char filename[strlen(iface_name) + 35];
+    snprintf(filename, sizeof(filename), "/var/lib/dhcp/lease_%s.json", iface_name);
+
+    FILE *f = fopen(filename, "r");
+    if (!f) {
+        perror("fopen");
+        return NULL;
+    }
+
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return NULL;
+    }
+
+    long file_size = ftell(f);
+    if (file_size < 0) {
+        fclose(f);
+        return NULL;
+    }
+
+    rewind(f);
+
+    char *json_string = (char *)calloc((size_t)file_size + 1, sizeof(char));
+    if (!json_string) {
+        fclose(f);
+        return NULL;
+    }
+
+    size_t bytes_read = fread(json_string, sizeof(char), (size_t)file_size, f);
+    fclose(f);
+
+    if (bytes_read != (size_t)file_size) {
+        free(json_string);
+        return NULL;
+    }
+
+    cJSON *lease_json = cJSON_Parse(json_string);
+    free(json_string);
+
+    if (!lease_json) {
+        return NULL;
+    }
+
+    cJSON *server_duid = cJSON_GetObjectItemCaseSensitive(lease_json, "server_duid");
+    cJSON *leases = cJSON_GetObjectItemCaseSensitive(lease_json, "leases");
+
+    if (!cJSON_IsObject(server_duid) || !cJSON_IsArray(leases)) {
+        cJSON_Delete(lease_json);
+        return NULL;
+    }
+
+    return lease_json;
 }
 
 int get_mac_address(const char *iface_name, uint8_t mac[6]) {

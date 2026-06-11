@@ -119,6 +119,7 @@ int check_for_message(int sockfd, uint8_t *packet, int type) {
         uint8_t buffer[MAX_PACKET_SIZE];
         ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
         memcpy(packet, buffer, len);
+        fprintf(stderr, " %zd\n", len);
         if (buffer[0] == type) {
             return len;
         }
@@ -214,7 +215,7 @@ uint8_t get_option_count(uint8_t *packet, unsigned long int size, uint8_t *iaopt
         option_code |= packet[index + 1];
         if (option_code == IA_NA_OPTION_CODE|| option_code == IA_PD_OPTION_CODE) {
             option_count++;
-            (*iaoptioncount)++;
+            (*iaoption_count)++;
         }
         uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT;
         option_length |= packet[index + 3];
@@ -245,23 +246,70 @@ int get_option_index(uint8_t *packet, unsigned long int size, uint8_t desired_op
     return -1;
 }
 
-int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
-    cJSON *root = cJSON_CreateObject();
-    cJSON *leases = cJSON_AddArrayToObject(root, "leases");
-
-    if (iana) {
-        cJSON *iana_obj = cJSON_CreateObject();
-        cJSON_AddStringToObject(iana_obj, "type", "IANA");
-        char hexstring[11];
-        sprintf(hexstring, "%08X", iana->iaid);
-        cJSON_AddStringToObject(iana_obj, "iaid", hexstring);
-        cJSON_AddNumberToObject(iana_obj, "t1", iana->t1);
-        cJSON_AddNumberToObject(iana_obj, "t2", iana->t2);
-        cJSON_AddStringToObject(iana_obj, "address", iana->address);
-        cJSON_AddNumberToObject(iana_obj, "preferred_lifetime", iana->preferredlifetime);
-        cJSON_AddNumberToObject(iana_obj, "valid_lifetime", iana->validlifetime);
-        cJSON_AddItemToArray(leases, iana_obj);
+static char *format_duid(const duid_ll_t *duid, size_t mac_length) {
+    if (!duid || !duid->mac) {
+        return NULL;
     }
+
+    char *duid_string = malloc(((mac_length + 4) * 3) + 1);
+    if (!duid_string) {
+        return NULL;
+    }
+
+    int written = snprintf(duid_string, ((mac_length + 4) * 3) + 1,
+                           "%02X:%02X:%02X:%02X",
+                           (duid->duid_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK,
+                           duid->duid_type & ONE_BYTE_MASK,
+                           (duid->hw_type >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK,
+                           duid->hw_type & ONE_BYTE_MASK);
+    if (written < 0) {
+        free(duid_string);
+        return NULL;
+    }
+
+    size_t offset = (size_t)written;
+    for (size_t i = 0; i < mac_length; i++) {
+        written = snprintf(duid_string + offset, ((mac_length + 4) * 3) + 1 - offset,
+                           ":%02X", duid->mac[i]);
+        if (written < 0) {
+            free(duid_string);
+            return NULL;
+        }
+        offset += (size_t)written;
+    }
+
+    return duid_string;
+}
+
+int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name, const duid_ll_t *server_duid, size_t server_duid_mac_length) {
+    char filename[strlen(iface_name) + 35];
+    snprintf(filename, sizeof(filename), "/var/lib/dhcp/lease_%s.json", iface_name);
+
+    if (!leaseFileExists(iface_name)) {
+        FILE *lease_file = fopen(filename, "w");
+        if (!lease_file) {
+            perror("fopen");
+            return -1;
+        }
+        fclose(lease_file);
+    }
+
+    cJSON *root = cJSON_CreateObject();
+
+    if (server_duid) {
+        cJSON *server_duid_obj = cJSON_AddObjectToObject(root, "server_duid");
+        cJSON_AddNumberToObject(server_duid_obj, "duid_type", server_duid->duid_type);
+
+        char *duid_string = format_duid(server_duid, server_duid_mac_length);
+        if (!duid_string) {
+            cJSON_Delete(root);
+            return -1;
+        }
+        cJSON_AddStringToObject(server_duid_obj, "duid", duid_string);
+        free(duid_string);
+    }
+
+    cJSON *leases = cJSON_AddArrayToObject(root, "leases");
 
     if (iapd) {
         cJSON *iapd_obj = cJSON_CreateObject();
@@ -284,14 +332,25 @@ int writeLease(IANA_t *iana, IAPD_t *iapd, const char *iface_name) {
         cJSON_AddItemToArray(leases, iapd_obj);
     }
 
+    if (iana) {
+        cJSON *iana_obj = cJSON_CreateObject();
+        cJSON_AddStringToObject(iana_obj, "type", "IANA");
+        char hexstring[11];
+        sprintf(hexstring, "%08X", iana->iaid);
+        cJSON_AddStringToObject(iana_obj, "iaid", hexstring);
+        cJSON_AddNumberToObject(iana_obj, "t1", iana->t1);
+        cJSON_AddNumberToObject(iana_obj, "t2", iana->t2);
+        cJSON_AddStringToObject(iana_obj, "address", iana->address);
+        cJSON_AddNumberToObject(iana_obj, "preferred_lifetime", iana->preferredlifetime);
+        cJSON_AddNumberToObject(iana_obj, "valid_lifetime", iana->validlifetime);
+        cJSON_AddItemToArray(leases, iana_obj);
+    }
+
     char *json_string = cJSON_Print(root);
     if (!json_string) {
         cJSON_Delete(root);
         return -1;
     }
-
-    char filename[strlen(iface_name) + 35];
-    snprintf(filename, sizeof(filename), "/var/lib/dhcp/lease_%s.json", iface_name);
 
     FILE *f = fopen(filename, "w");
     if (!f) {
@@ -373,4 +432,34 @@ void waitToRetransmit(uint64_t retrans_time) {
 	if (retrans_time >= 1000) {
 	    usleep((retrans_time * MICROSECONDS_IN_MILLISECONDS) - MICROSECONDS_IN_SECONDS);
 	}
+}
+
+bool is_matching_reply(uint8_t *packet, int packet_size, dhcpv6_message_t *request) {
+    if (packet_size < 4 ||
+        valid_transaction_id(packet[1], packet[2], packet[3]) != request->transaction_id) {
+        return false;
+    }
+
+    bool has_client_id = false;
+    bool has_server_id = false;
+    int index = 4;
+
+    while (index + 4 <= packet_size) {
+        uint16_t option_code = packet[index] << ONE_BYTE_SHIFT | packet[index + 1];
+        uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT | packet[index + 3];
+
+        if (index + option_length + 4 > packet_size) {
+            return false;
+        }
+
+        if (option_code == CLIENT_ID_OPTION_CODE) {
+            has_client_id = true;
+        } else if (option_code == SERVER_ID_OPTION_CODE) {
+            has_server_id = true;
+        }
+
+        index += option_length + 4;
+    }
+
+    return index == packet_size && has_client_id && has_server_id;
 }

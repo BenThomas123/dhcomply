@@ -292,80 +292,67 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
 
 }
 
-dhcpv6_message_t * buildRenew(dhcpv6_message_t *reply, config_t *config) {
+dhcpv6_message_t * buildRenew(dhcpv6_message_t *reply, dhcpv6_message_t *request, config_t *config) {
 
     uint8_t option_count = reply->option_count;
-
-   dhcpv6_message_t *renew = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
-
-   valid_memory_allocation(renew);
-
+    dhcpv6_message_t *renew = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
+    valid_memory_allocation(renew);
     renew->message_type = RENEW_MESSAGE_TYPE;
-
     renew->transaction_id = rand() & THREE_BYTE_MASK;
 
-    renew->option_list = calloc(option_count + 2, sizeof(dhcpv6_option_t));
+    renew->option_list = calloc(option_count + 4, sizeof(dhcpv6_option_t));
 
     valid_memory_allocation(renew->option_list);
-
     size_t index = 0;
 
     for (int i = 0; i < option_count; i++) {
-
         dhcpv6_option_t *opt = &reply->option_list[i];
-
         uint16_t option_code = opt->option_code;
-
         uint16_t option_length = opt->option_length;
-
         renew->option_list[index].option_code = option_code;
-
         renew->option_list[index].option_length = option_length;
-
+		fprintf(stderr, "building renew: option code %d\n", option_code);
         switch (opt->option_code) {
 
             case CLIENT_ID_OPTION_CODE:
-
+				fprintf(stderr, "client id\n");
                 renew->option_list[index].client_id_t = reply->option_list[i].client_id_t;
-
+				index++;
                 break;
 
             case SERVER_ID_OPTION_CODE:
-
+				fprintf(stderr, "server id\n");
                 renew->option_list[index].server_id_t = reply->option_list[i].server_id_t;
-
+				index++;
                 break;
 
             case IA_NA_OPTION_CODE:
-
-                renew->option_list[index].ia_na_t = reply->option_list[i].ia_na_t;
-
-                renew->option_list[index].ia_na_t.t1 = 0;
-
-                renew->option_list[index].ia_na_t.t2 = 0;
-
+				if (request->message_type != CONFIRM_MESSAGE_TYPE) {
+					fprintf(stderr, "iana added\n");
+                	renew->option_list[index].ia_na_t = reply->option_list[i].ia_na_t;
+               		renew->option_list[index].ia_na_t.t1 = 0;
+                	renew->option_list[index].ia_na_t.t2 = 0;
+	                index++;
+				}
                 break;
 
             case IA_ADDR_OPTION_CODE:
-
-                renew->option_list[index].ia_address_t = reply->option_list[i].ia_address_t;
-
-                renew->option_list[index].ia_address_t.valid_lifetime = 0;
-
-                renew->option_list[index].ia_address_t.preferred_lifetime = 0;
-
-                break;
+				if (request->message_type != CONFIRM_MESSAGE_TYPE) {
+					fprintf(stderr, "ia addr added\n");
+                	renew->option_list[index].ia_address_t = reply->option_list[i].ia_address_t;
+                	renew->option_list[index].ia_address_t.valid_lifetime = 0;
+                	renew->option_list[index].ia_address_t.preferred_lifetime = 0;
+	                index++;
+				}
+		        break;
 
             case IA_PD_OPTION_CODE:
-
+				fprintf(stderr, "iapd added\n");
                 renew->option_list[index].ia_pd_t = reply->option_list[i].ia_pd_t;
-
                 renew->option_list[index].ia_pd_t.t1 = 0;
-
                 renew->option_list[index].ia_pd_t.t2 = 0;
-
+		        index++;
                 break;
-
             case IAPREFIX_OPTION_CODE:
 
                 renew->option_list[index].ia_prefix_t = reply->option_list[i].ia_prefix_t;
@@ -373,18 +360,22 @@ dhcpv6_message_t * buildRenew(dhcpv6_message_t *reply, config_t *config) {
                 renew->option_list[index].ia_prefix_t.valid_lifetime = 0;
 
                 renew->option_list[index].ia_prefix_t.preferred_lifetime = 0;
+		        index++;
 
                 break;
 
             case DNS_SERVERS_OPTION_CODE:
 
+				fprintf(stderr, "dns added\n");
                 renew->option_list[index].dns_recursive_name_server_t = reply->option_list[i].dns_recursive_name_server_t;
+		        index++;
 
                 break;
 
             case DOMAIN_SEARCH_LIST_OPTION_CODE:
 
                 renew->option_list[index].domain_search_list_t.search_list = reply->option_list[i].domain_search_list_t.search_list;
+		        index++;
 
                 break;
 
@@ -394,112 +385,91 @@ dhcpv6_message_t * buildRenew(dhcpv6_message_t *reply, config_t *config) {
 
         }
 
-        index++;
-
     }
 
     renew->option_list[index].option_code = ELAPSED_TIME_OPTION_CODE;
-
     renew->option_list[index].option_length = 2;
-
     renew->option_list[index].elapsed_time_t.elapsed_time_value = 0;
-
     index++;
 
     if (config->oro_list_length > 0) {
-
         renew->option_list[index].option_code = ORO_OPTION_CODE;
-
         renew->option_list[index].option_length = config->oro_list_length * OPTION_CODE_LENGTH_IN_ORO;
-
         renew->option_list[index].option_request_t.option_request = (uint8_t *)calloc(renew->option_list[index].option_length / OPTION_CODE_LENGTH_IN_ORO, sizeof(uint8_t));
-
         valid_memory_allocation(renew->option_list[index].option_request_t.option_request);
-
         memcpy(renew->option_list[index].option_request_t.option_request, config->oro_list, config->oro_list_length);
-
         index++;
+    }
 
+    if (request->message_type == CONFIRM_MESSAGE_TYPE) {
+        for (int i = 0; i + 1 < request->option_count; i++) {
+            if (request->option_list[i].option_code == IA_NA_OPTION_CODE &&
+                request->option_list[i + 1].option_code == IA_ADDR_OPTION_CODE) {
+                renew->option_list[index].option_code = IA_NA_OPTION_CODE;
+                renew->option_list[index].option_length = request->option_list[i].option_length;
+                renew->option_list[index].ia_na_t = request->option_list[i].ia_na_t;
+                index++;
+
+                renew->option_list[index].option_code = IA_ADDR_OPTION_CODE;
+                renew->option_list[index].option_length = request->option_list[i + 1].option_length;
+                renew->option_list[index].ia_address_t = request->option_list[i + 1].ia_address_t;
+                index++;
+				break;
+            }
+        }
     }
 
     renew->option_count = index;
-
     return renew;
-
 }
 
 dhcpv6_message_t * buildRebind(dhcpv6_message_t *reply, config_t *config) {
 
     uint8_t option_count = reply->option_count;
-
     dhcpv6_message_t *rebind = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
-
     valid_memory_allocation(rebind);
-
     rebind->message_type = REBIND_MESSAGE_TYPE;
-
     rebind->transaction_id = rand() & THREE_BYTE_MASK;
-
-    rebind->option_list = calloc(option_count + 1, sizeof(dhcpv6_option_t));
-
+    rebind->option_list = calloc(option_count + 3, sizeof(dhcpv6_option_t));
     valid_memory_allocation(rebind->option_list);
-
     size_t index = 0;
 
     for (int i = 0; i < option_count; i++) {
 
         dhcpv6_option_t *opt = &reply->option_list[i];
-
         uint16_t option_code = opt->option_code;
-
         uint16_t option_length = opt->option_length;
-
         rebind->option_list[index].option_code = option_code;
-
         rebind->option_list[index].option_length = option_length;
 
         switch (opt->option_code) {
 
             case CLIENT_ID_OPTION_CODE:
-
                 rebind->option_list[index].client_id_t = reply->option_list[i].client_id_t;
-
                 break;
 
             case IA_NA_OPTION_CODE:
-
                 rebind->option_list[index].ia_na_t = reply->option_list[i].ia_na_t;
-
                 break;
 
             case IA_ADDR_OPTION_CODE:
-
                 rebind->option_list[index].ia_address_t = reply->option_list[i].ia_address_t;
-
                 break;
 
             case IA_PD_OPTION_CODE:
-
                 rebind->option_list[index].ia_pd_t = reply->option_list[i].ia_pd_t;
-
                 break;
 
             case IAPREFIX_OPTION_CODE:
-
                 rebind->option_list[index].ia_prefix_t = reply->option_list[i].ia_prefix_t;
-
                 break;
 
             case DNS_SERVERS_OPTION_CODE:
-
                 rebind->option_list[index].dns_recursive_name_server_t = reply->option_list[i].dns_recursive_name_server_t;
-
                 break;
 
             case DOMAIN_SEARCH_LIST_OPTION_CODE:
-
                 rebind->option_list[index].domain_search_list_t.search_list = reply->option_list[i].domain_search_list_t.search_list;
-
                 break;
 
             default:
@@ -507,33 +477,21 @@ dhcpv6_message_t * buildRebind(dhcpv6_message_t *reply, config_t *config) {
                 break;
 
         }
-
         index++;
-
     }
 
     rebind->option_list[index].option_code = ELAPSED_TIME_OPTION_CODE;
-
     rebind->option_list[index].option_length = 2;
-
     rebind->option_list[index].elapsed_time_t.elapsed_time_value = 0;
-
     index++;
 
     if (config->oro_list_length > 0) {
-
         rebind->option_list[index].option_code = ORO_OPTION_CODE;
-
         rebind->option_list[index].option_length = config->oro_list_length * OPTION_CODE_LENGTH_IN_ORO;
-
         rebind->option_list[index].option_request_t.option_request = (uint8_t *)calloc(rebind->option_list[index].option_length / OPTION_CODE_LENGTH_IN_ORO, sizeof(uint8_t));
-
         valid_memory_allocation(rebind->option_list[index].option_request_t.option_request);
-
         memcpy(rebind->option_list[index].option_request_t.option_request, config->oro_list, config->oro_list_length);
-
         index++;
-
     }
 
     rebind->option_count = index;
@@ -748,4 +706,204 @@ dhcpv6_message_t *buildInformationRequest(config_t *config, const char *ifname) 
 
     return msg;
 
+}
+
+dhcpv6_message_t *buildConfirm(config_t *config, const char *ifname, uint32_t *t1, uint32_t *t2,
+    uint32_t *valid_lifetime) {
+
+    cJSON *lease_json = readLease(ifname);
+    if (!lease_json) {
+        return NULL;
+    }
+
+    size_t option_count = 2;
+
+    cJSON *server_duid = cJSON_GetObjectItemCaseSensitive(lease_json, "server_duid");
+    if (cJSON_IsObject(server_duid)) option_count++;
+
+    cJSON *leases = cJSON_GetObjectItemCaseSensitive(lease_json, "leases");
+    if (!cJSON_IsArray(leases)) {
+        cJSON_Delete(lease_json);
+        return NULL;
+    }
+
+    cJSON *lease = NULL;
+    cJSON_ArrayForEach(lease, leases) {
+        cJSON *type = cJSON_GetObjectItemCaseSensitive(lease, "type");
+        if (cJSON_IsString(type) &&
+            (!strcmp(type->valuestring, "IANA") || !strcmp(type->valuestring, "IAPD"))) {
+            option_count += 2;
+        }
+    }
+
+    if (config->oro_list_length > 0) option_count++;
+    if (config->reconfigure) option_count++;
+
+    dhcpv6_message_t *msg = malloc(sizeof(dhcpv6_message_t));
+    valid_memory_allocation(msg);
+    msg->message_type = CONFIRM_MESSAGE_TYPE;
+    msg->transaction_id = rand() & THREE_BYTE_MASK;
+    msg->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
+    valid_memory_allocation(msg->option_list);
+    size_t index = 0;
+
+    msg->option_list[index].option_code = CLIENT_ID_OPTION_CODE;
+    msg->option_list[index].option_length = 10;
+    msg->option_list[index].client_id_t.duid.hw_type = 1;
+    msg->option_list[index].client_id_t.duid.duid_type = 3;
+
+    uint8_t *mac = (uint8_t *)calloc(MAC_ADDRESS_LENGTH, sizeof(uint8_t));
+    valid_memory_allocation(mac);
+    get_mac_address(ifname, mac);
+
+    msg->option_list[index].client_id_t.duid.mac = (uint8_t *)calloc(MAC_ADDRESS_LENGTH, sizeof(uint8_t));
+    valid_memory_allocation(msg->option_list[index].client_id_t.duid.mac);
+
+    for (int i = 0; i < MAC_ADDRESS_LENGTH; i++) {
+        msg->option_list[index].client_id_t.duid.mac[i] = mac[i];
+    }
+
+    free(mac);
+    index++;
+
+    msg->option_list[index].option_code = ELAPSED_TIME_OPTION_CODE;
+    msg->option_list[index].option_length = 2;
+    msg->option_list[index].elapsed_time_t.elapsed_time_value = 0;
+    index++;
+
+    if (config->oro_list_length > 0) {
+        msg->option_list[index].option_code = ORO_OPTION_CODE;
+        msg->option_list[index].option_length = config->oro_list_length * OPTION_CODE_LENGTH_IN_ORO;
+        msg->option_list[index].option_request_t.option_request =
+            (uint8_t *)malloc(msg->option_list[index].option_length);
+        valid_memory_allocation(msg->option_list[index].option_request_t.option_request);
+        memcpy(msg->option_list[index].option_request_t.option_request,
+               config->oro_list,
+               config->oro_list_length);
+        index++;
+    }
+
+    if (config->reconfigure) {
+        msg->option_list[index].option_code = RECONF_ACCEPT_OPTION_CODE;
+        msg->option_list[index].option_length = 0;
+        index++;
+    }
+
+    *t1 = 0;
+    *t2 = 0;
+    *valid_lifetime = 0;
+
+    cJSON_ArrayForEach(lease, leases) {
+        cJSON *type = cJSON_GetObjectItemCaseSensitive(lease, "type");
+        cJSON *iaid = cJSON_GetObjectItemCaseSensitive(lease, "iaid");
+        cJSON *lease_t1 = cJSON_GetObjectItemCaseSensitive(lease, "t1");
+        cJSON *lease_t2 = cJSON_GetObjectItemCaseSensitive(lease, "t2");
+        cJSON *preferred_lifetime = cJSON_GetObjectItemCaseSensitive(lease, "preferred_lifetime");
+        cJSON *lease_valid_lifetime = cJSON_GetObjectItemCaseSensitive(lease, "valid_lifetime");
+
+        if (!cJSON_IsString(type) ||
+            !cJSON_IsString(iaid) ||
+            !cJSON_IsNumber(lease_t1) ||
+            !cJSON_IsNumber(lease_t2) ||
+            !cJSON_IsNumber(preferred_lifetime) ||
+            !cJSON_IsNumber(lease_valid_lifetime)) {
+            cJSON_Delete(lease_json);
+            return NULL;
+        }
+
+        if ((uint32_t)lease_t1->valueint > *t1) {
+            *t1 = (uint32_t)lease_t1->valueint;
+        }
+
+        if ((uint32_t)lease_t2->valueint > *t2) {
+            *t2 = (uint32_t)lease_t2->valueint;
+        }
+
+        if ((uint32_t)lease_valid_lifetime->valueint > *valid_lifetime) {
+            *valid_lifetime = (uint32_t)lease_valid_lifetime->valueint;
+        }
+
+        if (!strcmp(type->valuestring, "IANA")) {
+            cJSON *address = cJSON_GetObjectItemCaseSensitive(lease, "address");
+            if (!cJSON_IsString(address)) {
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+
+            msg->option_list[index].option_code = IA_NA_OPTION_CODE;
+            msg->option_list[index].option_length = 12 + 4 + 24;
+            msg->option_list[index].ia_na_t.iaid = strtoul(iaid->valuestring, NULL, 16);
+            msg->option_list[index].ia_na_t.t1 = 0;
+            msg->option_list[index].ia_na_t.t2 = 0;
+            index++;
+
+            msg->option_list[index].option_code = IA_ADDR_OPTION_CODE;
+            msg->option_list[index].option_length = 24;
+            msg->option_list[index].ia_address_t.preferred_lifetime = 0;
+            msg->option_list[index].ia_address_t.valid_lifetime = 0;
+
+            struct in6_addr addr;
+            if (inet_pton(AF_INET6, address->valuestring, &addr) != 1) {
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+
+            uint128_t parsed_address = 0;
+            for (int i = 0; i < 16; i++) {
+                parsed_address <<= ONE_BYTE_SHIFT;
+                parsed_address |= addr.s6_addr[i];
+            }
+
+            msg->option_list[index].ia_address_t.ipv6_address = parsed_address;
+            index++;
+        } else if (!strcmp(type->valuestring, "IAPD")) {
+            cJSON *prefix = cJSON_GetObjectItemCaseSensitive(lease, "prefix");
+            cJSON *prefix_length = cJSON_GetObjectItemCaseSensitive(lease, "prefix_length");
+
+            if (!cJSON_IsString(prefix) || !cJSON_IsNumber(prefix_length)) {
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+            msg->message_type = REBIND_MESSAGE_TYPE;
+
+
+            msg->option_list[index].option_code = IA_PD_OPTION_CODE;
+            msg->option_list[index].option_length = 12 + 4 + 25;
+            msg->option_list[index].ia_pd_t.iaid = strtoul(iaid->valuestring, NULL, 16);
+            msg->option_list[index].ia_pd_t.t1 = 0;
+            msg->option_list[index].ia_pd_t.t2 = 0;
+            index++;
+
+            msg->option_list[index].option_code = IAPREFIX_OPTION_CODE;
+            msg->option_list[index].option_length = 25;
+            msg->option_list[index].ia_prefix_t.prefix_length = prefix_length->valueint;
+            msg->option_list[index].ia_prefix_t.preferred_lifetime = 0;
+            msg->option_list[index].ia_prefix_t.valid_lifetime = 0;
+
+            char prefix_address[INET6_ADDRSTRLEN];
+            if (sscanf(prefix->valuestring, "%45[^/]", prefix_address) != 1) {
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+
+            struct in6_addr addr;
+            if (inet_pton(AF_INET6, prefix_address, &addr) != 1) {
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+
+            uint128_t parsed_prefix = 0;
+            for (int i = 0; i < 16; i++) {
+                parsed_prefix <<= ONE_BYTE_SHIFT;
+                parsed_prefix |= addr.s6_addr[i];
+            }
+
+            msg->option_list[index].ia_prefix_t.ipv6_prefix = parsed_prefix;
+            index++;
+        }
+    }
+
+    msg->option_count = index;
+    cJSON_Delete(lease_json);
+    return msg;
 }
