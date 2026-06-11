@@ -572,13 +572,15 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 if (iana->preferredlifetime > iana->validlifetime) {
                     fprintf(stderr, "reply failed: valid lifetime not greater than prefered\n");
-                    badReply = true; }
+                    badReply = true;
+				}
 
                 if (request->option_list[option_index].ia_address_t.ipv6_address !=
 
                     reply->option_list[option_index].ia_address_t.ipv6_address &&
 
-                    (request->message_type != REQUEST_MESSAGE_TYPE && request->message_type != REBIND_MESSAGE_TYPE) ) {
+                    (request->message_type != REQUEST_MESSAGE_TYPE && request->message_type != REBIND_MESSAGE_TYPE
+					&& request->message_type != RELEASE_MESSAGE_TYPE) ) {
 
                     fprintf(stderr, "reply failed: because expected request \n");
                     badReply = true;
@@ -590,7 +592,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 uint128_to_ipv6_str(address, address_string2, sizeof(address_string2));
 
-				sprintf(cmd2, "sudo ip -6 addr del %s/%d dev %s 2>/dev/null", address_string2, 128, iface);
+				sprintf(cmd2, "sudo ip -6 addr del %s/%d dev %s > /dev/null 2>&1", address_string2, 128, iface);
 				system(cmd2);
 
                 char cmd[512];
@@ -598,8 +600,11 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
                 char address_string[INET6_ADDRSTRLEN];
 
                 uint128_to_ipv6_str(address, address_string, sizeof(address_string));
-                sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, reply->option_list[option_index].ia_address_t.preferred_lifetime, reply->option_list[option_index].ia_address_t.valid_lifetime);
-				system(cmd);
+                if (request->message_type != RELEASE_MESSAGE_TYPE) {
+                    sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, reply->option_list[option_index].ia_address_t.preferred_lifetime, reply->option_list[option_index].ia_address_t.valid_lifetime);
+                    system(cmd);
+                }
+
                 iana->address = strdup(address_string);
 
                 valid_memory_allocation(iana->address);
@@ -698,7 +703,8 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                     reply->option_list[option_index].ia_prefix_t.ipv6_prefix
 
-                    && (request->message_type != REQUEST_MESSAGE_TYPE && request->message_type != REBIND_MESSAGE_TYPE) ) {
+                    && (request->message_type != REQUEST_MESSAGE_TYPE && request->message_type != REBIND_MESSAGE_TYPE
+					&& request->message_type != RELEASE_MESSAGE_TYPE ) ) {
 
                     badReply = true;
                     fprintf(stderr, "reply failed for some reason");
