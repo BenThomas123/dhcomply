@@ -907,3 +907,233 @@ dhcpv6_message_t *buildConfirm(config_t *config, const char *ifname, uint32_t *t
     cJSON_Delete(lease_json);
     return msg;
 }
+
+dhcpv6_message_t *buildRelease(config_t *config, const char *ifname) {
+
+    cJSON *lease_json = readLease(ifname);
+    if (!lease_json) {
+        return NULL;
+    }
+
+    size_t option_count = 2;
+
+    cJSON *server_duid = cJSON_GetObjectItemCaseSensitive(lease_json, "server_duid");
+    if (cJSON_IsObject(server_duid)) option_count++;
+
+    cJSON *leases = cJSON_GetObjectItemCaseSensitive(lease_json, "leases");
+    if (!cJSON_IsArray(leases)) {
+        cJSON_Delete(lease_json);
+        return NULL;
+    }
+
+    cJSON *lease = NULL;
+    cJSON_ArrayForEach(lease, leases) {
+        cJSON *type = cJSON_GetObjectItemCaseSensitive(lease, "type");
+        if (cJSON_IsString(type) &&
+            (!strcmp(type->valuestring, "IANA") || !strcmp(type->valuestring, "IAPD"))) {
+            option_count += 2;
+        }
+    }
+
+    if (config->oro_list_length > 0) option_count++;
+    if (config->reconfigure) option_count++;
+
+    dhcpv6_message_t *msg = malloc(sizeof(dhcpv6_message_t));
+    valid_memory_allocation(msg);
+    msg->message_type = RELEASE_MESSAGE_TYPE;
+    msg->transaction_id = rand() & THREE_BYTE_MASK;
+    msg->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
+    valid_memory_allocation(msg->option_list);
+    size_t index = 0;
+
+    msg->option_list[index].option_code = CLIENT_ID_OPTION_CODE;
+    msg->option_list[index].option_length = 10;
+    msg->option_list[index].client_id_t.duid.hw_type = 1;
+    msg->option_list[index].client_id_t.duid.duid_type = 3;
+
+    uint8_t *mac = (uint8_t *)calloc(MAC_ADDRESS_LENGTH, sizeof(uint8_t));
+    valid_memory_allocation(mac);
+    get_mac_address(ifname, mac);
+
+    msg->option_list[index].client_id_t.duid.mac = (uint8_t *)calloc(MAC_ADDRESS_LENGTH, sizeof(uint8_t));
+    valid_memory_allocation(msg->option_list[index].client_id_t.duid.mac);
+
+    for (int i = 0; i < MAC_ADDRESS_LENGTH; i++) {
+        msg->option_list[index].client_id_t.duid.mac[i] = mac[i];
+    }
+
+    free(mac);
+    index++;
+
+    if (cJSON_IsObject(server_duid)) {
+        cJSON *duid = cJSON_GetObjectItemCaseSensitive(server_duid, "duid");
+        if (!cJSON_IsString(duid) || !duid->valuestring) {
+            cJSON_Delete(lease_json);
+            return NULL;
+        }
+
+        size_t max_bytes = (strlen(duid->valuestring) / 2) + 1;
+        uint8_t *bytes = calloc(max_bytes, sizeof(uint8_t));
+        valid_memory_allocation(bytes);
+
+        const char *cursor = duid->valuestring;
+        size_t byte_count = 0;
+        while (*cursor) {
+            if (!isxdigit((unsigned char)cursor[0]) || !isxdigit((unsigned char)cursor[1])) {
+                free(bytes);
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+
+            char octet_string[3] = { cursor[0], cursor[1], '\0' };
+            char *end = NULL;
+            errno = 0;
+            unsigned long octet = strtoul(octet_string, &end, 16);
+            if (errno != 0 || end == octet_string || *end != '\0' || octet > ONE_BYTE_MASK) {
+                free(bytes);
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+
+            bytes[byte_count++] = (uint8_t)octet;
+            cursor += 2;
+
+            if (*cursor == ':') {
+                cursor++;
+            } else if (*cursor != '\0') {
+                free(bytes);
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+        }
+
+        if (byte_count <= 4) {
+            free(bytes);
+            cJSON_Delete(lease_json);
+            return NULL;
+        }
+
+        msg->option_list[index].option_code = SERVER_ID_OPTION_CODE;
+        msg->option_list[index].option_length = (uint16_t)byte_count;
+        msg->option_list[index].server_id_t.duid.duid_type =
+            ((uint16_t)bytes[0] << ONE_BYTE_SHIFT) | bytes[1];
+        msg->option_list[index].server_id_t.duid.hw_type =
+            ((uint16_t)bytes[2] << ONE_BYTE_SHIFT) | bytes[3];
+
+        size_t server_duid_mac_length = byte_count - 4;
+        msg->option_list[index].server_id_t.duid.mac =
+            calloc(server_duid_mac_length, sizeof(uint8_t));
+        valid_memory_allocation(msg->option_list[index].server_id_t.duid.mac);
+        memcpy(msg->option_list[index].server_id_t.duid.mac,
+               bytes + 4,
+               server_duid_mac_length);
+
+        free(bytes);
+        index++;
+    }
+
+    msg->option_list[index].option_code = ELAPSED_TIME_OPTION_CODE;
+    msg->option_list[index].option_length = 2;
+    msg->option_list[index].elapsed_time_t.elapsed_time_value = 0;
+    index++;
+
+    cJSON_ArrayForEach(lease, leases) {
+        cJSON *type = cJSON_GetObjectItemCaseSensitive(lease, "type");
+        cJSON *iaid = cJSON_GetObjectItemCaseSensitive(lease, "iaid");
+        cJSON *lease_t1 = cJSON_GetObjectItemCaseSensitive(lease, "t1");
+        cJSON *lease_t2 = cJSON_GetObjectItemCaseSensitive(lease, "t2");
+        cJSON *preferred_lifetime = cJSON_GetObjectItemCaseSensitive(lease, "preferred_lifetime");
+        cJSON *lease_valid_lifetime = cJSON_GetObjectItemCaseSensitive(lease, "valid_lifetime");
+
+        if (!cJSON_IsString(type) ||
+            !cJSON_IsString(iaid) ||
+            !cJSON_IsNumber(lease_t1) ||
+            !cJSON_IsNumber(lease_t2) ||
+            !cJSON_IsNumber(preferred_lifetime) ||
+            !cJSON_IsNumber(lease_valid_lifetime)) {
+            cJSON_Delete(lease_json);
+            return NULL;
+        }
+
+        if (!strcmp(type->valuestring, "IANA")) {
+            cJSON *address = cJSON_GetObjectItemCaseSensitive(lease, "address");
+            if (!cJSON_IsString(address)) {
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+
+            msg->option_list[index].option_code = IA_NA_OPTION_CODE;
+            msg->option_list[index].option_length = 12 + 4 + 24;
+            msg->option_list[index].ia_na_t.iaid = strtoul(iaid->valuestring, NULL, 16);
+            msg->option_list[index].ia_na_t.t1 = 0;
+            msg->option_list[index].ia_na_t.t2 = 0;
+            index++;
+
+            msg->option_list[index].option_code = IA_ADDR_OPTION_CODE;
+            msg->option_list[index].option_length = 24;
+            msg->option_list[index].ia_address_t.preferred_lifetime = 0;
+            msg->option_list[index].ia_address_t.valid_lifetime = 0;
+
+            struct in6_addr addr;
+            if (inet_pton(AF_INET6, address->valuestring, &addr) != 1) {
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+
+            uint128_t parsed_address = 0;
+            for (int i = 0; i < 16; i++) {
+                parsed_address <<= ONE_BYTE_SHIFT;
+                parsed_address |= addr.s6_addr[i];
+            }
+
+            msg->option_list[index].ia_address_t.ipv6_address = parsed_address;
+            index++;
+        } else if (!strcmp(type->valuestring, "IAPD")) {
+            cJSON *prefix = cJSON_GetObjectItemCaseSensitive(lease, "prefix");
+            cJSON *prefix_length = cJSON_GetObjectItemCaseSensitive(lease, "prefix_length");
+
+            if (!cJSON_IsString(prefix) || !cJSON_IsNumber(prefix_length)) {
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+
+            msg->option_list[index].option_code = IA_PD_OPTION_CODE;
+            msg->option_list[index].option_length = 12 + 4 + 25;
+            msg->option_list[index].ia_pd_t.iaid = strtoul(iaid->valuestring, NULL, 16);
+            msg->option_list[index].ia_pd_t.t1 = 0;
+            msg->option_list[index].ia_pd_t.t2 = 0;
+            index++;
+
+            msg->option_list[index].option_code = IAPREFIX_OPTION_CODE;
+            msg->option_list[index].option_length = 25;
+            msg->option_list[index].ia_prefix_t.prefix_length = prefix_length->valueint;
+            msg->option_list[index].ia_prefix_t.preferred_lifetime = 0;
+            msg->option_list[index].ia_prefix_t.valid_lifetime = 0;
+
+            char prefix_address[INET6_ADDRSTRLEN];
+            if (sscanf(prefix->valuestring, "%45[^/]", prefix_address) != 1) {
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+
+            struct in6_addr addr;
+            if (inet_pton(AF_INET6, prefix_address, &addr) != 1) {
+                cJSON_Delete(lease_json);
+                return NULL;
+            }
+
+            uint128_t parsed_prefix = 0;
+            for (int i = 0; i < 16; i++) {
+                parsed_prefix <<= ONE_BYTE_SHIFT;
+                parsed_prefix |= addr.s6_addr[i];
+            }
+
+            msg->option_list[index].ia_prefix_t.ipv6_prefix = parsed_prefix;
+            index++;
+        }
+    }
+
+    msg->option_count = index;
+    cJSON_Delete(lease_json);
+    return msg;
+}

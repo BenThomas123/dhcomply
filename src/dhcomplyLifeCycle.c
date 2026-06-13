@@ -592,6 +592,61 @@ int confirmLifeCycle(config_t *config_file, char *ifname) {
     return 1;
 }
 
+int releaseLifeCycle(config_t *config_file, char *ifname) {
+	fprintf(stderr, "in releaseLifeCycle...verifying lease file\n");
+
+    if (!leaseFileExists(ifname)) {
+        return 1;
+    }
+
+	fprintf(stderr, "in releaseLifeCycle\n");
+    uint8_t retransmission_release = 0;
+    uint32_t elapse_time = 0;
+
+    copyLeaseFileToConfirmTemp(ifname);
+    delete_lease_file(ifname);
+    while (!dhcpv6_client_port_available()) {}
+    moveConfirmTempLeaseFile(ifname);
+	fprintf(stderr, "in releaseLifeCycle3\n");
+
+    int sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+    valid_socket(sockfd);
+
+    dhcpv6_message_t *firstRelease = buildRelease(config_file, ifname);
+    sendRelease(firstRelease, sockfd, ifname, elapse_time);
+	fprintf(stderr, "in releaseLifeCycle4\n");
+
+    while (retransmission_release < RELEASE_RETRANS_COUNT) {
+        uint8_t *reply_packet = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
+        int reply_check = check_for_message(sockfd, reply_packet, REPLY_MESSAGE_TYPE);
+        if (reply_check) {
+            dhcpv6_message_t *reply_message =
+                parseReply(reply_packet, firstRelease, ifname, reply_check);
+            if (!reply_message->valid) {
+				fprintf(stderr, "in releaseLifeCycle5\n");
+                continue;
+            } else {
+				fprintf(stderr, "in releaseLifeCycle loop\n");
+				remove_message_addresses(firstRelease, ifname);
+                delete_lease_file(ifname);
+                return 0;
+            }
+        } else {
+           uint64_t retrans_time = release_lower[retransmission_release] +
+                    (rand() % (release_upper[retransmission_release] - release_lower[retransmission_release]));
+           waitToRetransmit(retrans_time);
+           if (elapse_time < 655350) {
+                sendRelease(firstRelease, sockfd, ifname, elapse_time / 10);
+           } else {
+                sendRelease(firstRelease, sockfd, ifname, 65535);
+           }
+           retransmission_release++;
+        }
+    }
+
+    return 1;
+}
+
 void statelessLifeCycle(config_t *config_file, char *ifname, int sockfd) {
     restartStateless:
     uint64_t inf_max_rt = 3600 * MILLISECONDS_IN_SECONDS;
