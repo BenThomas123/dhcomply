@@ -311,7 +311,7 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
             case PREFERENCE_OPTION_CODE:
 
-                advertise_message->option_list[option_index].preference_t.preference_value = (packet[index + 4] << 8) | packet[index + 5];
+                advertise_message->option_list[option_index].preference_t.preference_value = packet[index + 4];
 
                 break;
 
@@ -854,7 +854,7 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
             case PREFERENCE_OPTION_CODE:
 
-                reply->option_list[option_index].preference_t.preference_value = (packet[index + 4] << 8) | packet[index + 5];
+                reply->option_list[option_index].preference_t.preference_value = packet[index + 4];
 
                 break;
 
@@ -1168,7 +1168,7 @@ dhcpv6_message_t *parseStatelessReply(uint8_t *packet, dhcpv6_message_t *request
 
             case PREFERENCE_OPTION_CODE:
 
-                reply->option_list[option_index].preference_t.preference_value = (packet[index + 4] << 8) | packet[index + 5];
+                reply->option_list[option_index].preference_t.preference_value = packet[index + 4];
 
                 break;
 

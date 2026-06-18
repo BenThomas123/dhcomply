@@ -46,7 +46,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                 preference = advertisement->option_list[index].preference_t.preference_value;
             }
 
-            if (preference == 255 || retransmissionSolicit) {
+            if (preference != 255 && retransmissionSolicit) {
                 usleep(MICROSECONDS_IN_SECONDS);
             }
 
