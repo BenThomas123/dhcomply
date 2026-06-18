@@ -105,8 +105,139 @@ uint32_t getIAID(char *iaidString) {
     }
 }
 
+static uint8_t get_advertisement_preference(uint8_t *packet, ssize_t packet_length) {
+    long unsigned int index = 4;
+
+    while (index + 4 <= (long unsigned int)packet_length) {
+        uint16_t option_code = packet[index] << ONE_BYTE_SHIFT;
+        option_code |= packet[index + 1];
+
+        uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT;
+        option_length |= packet[index + 3];
+
+        if (index + 4 + option_length > (long unsigned int)packet_length) {
+            return 0;
+        }
+
+        if (option_code == PREFERENCE_OPTION_CODE && option_length == 1) {
+            return packet[index + 4];
+        }
+
+        index += option_length + 4;
+    }
+
+    return 0;
+}
+
+static int listen_for_advertisement(int sockfd, uint8_t *packet);
+static int listen_for_reply(int sockfd, uint8_t *packet);
+
 int check_for_message(int sockfd, uint8_t *packet, int type) {
-    fd_set read_fds;
+    if (type == ADVERTISE_MESSAGE_TYPE) {
+        return listen_for_advertisement(sockfd, packet);
+    }
+
+    if (type == REPLY_MESSAGE_TYPE) {
+        return listen_for_reply(sockfd, packet);
+    }
+
+    return 0;
+}
+
+static int listen_for_advertisement(int sockfd, uint8_t *packet) {
+    uint8_t **advertisements = NULL;
+    ssize_t *advertisement_lengths = NULL;
+    size_t advertisement_count = 0;
+
+    while (1) {
+        fd_set read_fds;
+        struct timeval timeout;
+        FD_ZERO(&read_fds);
+        FD_SET(sockfd, &read_fds);
+
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+
+        int ready = select(sockfd + 1, &read_fds, NULL, NULL, &timeout);
+        if (ready <= 0 || !FD_ISSET(sockfd, &read_fds)) {
+            break;
+        }
+
+        uint8_t buffer[MAX_PACKET_SIZE];
+        ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
+        if (len <= 0 || buffer[0] != ADVERTISE_MESSAGE_TYPE) {
+            continue;
+        }
+
+        uint8_t *advertisement = malloc(len);
+        if (!advertisement) {
+            break;
+        }
+
+        memcpy(advertisement, buffer, len);
+
+        uint8_t **new_advertisements =
+            realloc(advertisements, sizeof(uint8_t *) * (advertisement_count + 1));
+        if (!new_advertisements) {
+            free(advertisement);
+            break;
+        }
+        advertisements = new_advertisements;
+
+        ssize_t *new_lengths =
+            realloc(advertisement_lengths, sizeof(ssize_t) * (advertisement_count + 1));
+        if (!new_lengths) {
+            free(advertisement);
+            break;
+        }
+        advertisement_lengths = new_lengths;
+
+        advertisements[advertisement_count] = advertisement;
+        advertisement_lengths[advertisement_count] = len;
+        advertisement_count++;
+
+        if (get_advertisement_preference(advertisement, len) == 255) {
+            break;
+        }
+    }
+
+    if (advertisement_count == 0) {
+        free(advertisements);
+        free(advertisement_lengths);
+        return 0;
+    }
+
+    size_t best_index = 0;
+    uint8_t best_preference = 0;
+
+    for (size_t i = 0; i < advertisement_count; i++) {
+        uint8_t preference =
+            get_advertisement_preference(advertisements[i], advertisement_lengths[i]);
+
+        if (preference > best_preference) {
+            best_preference = preference;
+            best_index = i;
+        }
+
+        if (preference == 255) {
+            break;
+        }
+    }
+
+    memcpy(packet, advertisements[best_index], advertisement_lengths[best_index]);
+    int best_length = advertisement_lengths[best_index];
+
+    for (size_t i = 0; i < advertisement_count; i++) {
+        free(advertisements[i]);
+    }
+    free(advertisements);
+    free(advertisement_lengths);
+
+    return best_length;
+}
+
+static int listen_for_reply(int sockfd, uint8_t *packet) {
+	fd_set read_fds;
     struct timeval timeout;
     FD_ZERO(&read_fds);
     FD_SET(sockfd, &read_fds);
@@ -118,9 +249,12 @@ int check_for_message(int sockfd, uint8_t *packet, int type) {
     if (ready > 0 && FD_ISSET(sockfd, &read_fds)) {
         uint8_t buffer[MAX_PACKET_SIZE];
         ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
+        if (len <= 0) {
+            return 0;
+        }
+
         memcpy(packet, buffer, len);
-        fprintf(stderr, " %zd\n", len);
-        if (buffer[0] == type) {
+        if (buffer[0] == REPLY_MESSAGE_TYPE) {
             return len;
         }
     }
