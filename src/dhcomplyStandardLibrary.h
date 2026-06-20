@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <sys/wait.h>
+#include <inttypes.h>
 #include "dhcomplyStandardLibraryConstants.h"
 
 typedef unsigned char uint8_t;
@@ -35,6 +36,7 @@ void valid_file_pointer(FILE *);
 void valid_memory_allocation(void *);
 void valid_socket(int);
 void packet_sent_sucessfully(ssize_t);
+void execute_formatted_command(const char *command, size_t capacity, int formatted_length);
 int get_mac_address(const char *, uint8_t[6]);
 bool dhcpv6_client_port_available();
 
@@ -47,6 +49,7 @@ char *substring_to_end(const char *, size_t);
 char *trim(char *);
 void to_uppercase(char *);
 int uint128_to_ipv6_str(__uint128_t, char *, size_t);
+int ipv6_str_to_uint128(const char *, uint128_t *);
 char *append_ipv6_address_if_unique(const char *, const char *);
 char *format_ipv6_prefix(uint8_t prefix_len, uint128_t prefix);
 bool leaseFileExists(const char *);

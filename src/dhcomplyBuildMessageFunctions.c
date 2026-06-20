@@ -10,9 +10,15 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
 
     if (config->reconfigure) option_count++;
 
-    if (config->na) option_count++;
+    if (config->na) {
+        option_count++;
+        if (config->ia_hint.preferred_address) option_count++;
+    }
 
-    if (config->pd) option_count++;
+    if (config->pd) {
+        option_count++;
+        if (config->ia_hint.preferred_prefix) option_count++;
+    }
 
     dhcpv6_message_t *msg = malloc(sizeof(dhcpv6_message_t));
 
@@ -111,10 +117,12 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
     // IA_NA
 
     if (config->na) {
+        bool has_address_hint = config->ia_hint.preferred_address != NULL;
 
         msg->option_list[index].option_code = IA_NA_OPTION_CODE;
 
-        msg->option_list[index].option_length = 12;
+        msg->option_list[index].option_length =
+            has_address_hint ? 40 : 12;
 
         msg->option_list[index].ia_na_t.iaid = getIAID(config->ianaIaid);
 
@@ -124,15 +132,28 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
 
         index++;
 
+        if (has_address_hint) {
+            msg->option_list[index].option_code = IA_ADDR_OPTION_CODE;
+            msg->option_list[index].option_length = 24;
+            msg->option_list[index].ia_address_t.ipv6_address =
+                *config->ia_hint.preferred_address;
+            msg->option_list[index].ia_address_t.preferred_lifetime = 0;
+            msg->option_list[index].ia_address_t.valid_lifetime = 0;
+            msg->option_list[index].ia_address_t.ia_address_options = NULL;
+            index++;
+        }
+
     }
 
     // IA_PD
 
     if (config->pd) {
+        bool has_prefix_hint = config->ia_hint.preferred_prefix != NULL;
 
         msg->option_list[index].option_code = IA_PD_OPTION_CODE;
 
-        msg->option_list[index].option_length = 12;
+        msg->option_list[index].option_length =
+            has_prefix_hint ? 41 : 12;
 
         msg->option_list[index].ia_pd_t.iaid = getIAID(config->iapdIaid);
 
@@ -141,6 +162,18 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
         msg->option_list[index].ia_pd_t.t2 = 0;
 
         index++;
+
+        if (has_prefix_hint) {
+            msg->option_list[index].option_code = IAPREFIX_OPTION_CODE;
+            msg->option_list[index].option_length = 25;
+            msg->option_list[index].ia_prefix_t.ipv6_prefix =
+                *config->ia_hint.preferred_prefix;
+            msg->option_list[index].ia_prefix_t.preferred_lifetime = 0;
+            msg->option_list[index].ia_prefix_t.valid_lifetime = 0;
+            msg->option_list[index].ia_prefix_t.prefix_length =
+                *config->ia_hint.preferred_prefix_length;
+            index++;
+        }
 
     }
 

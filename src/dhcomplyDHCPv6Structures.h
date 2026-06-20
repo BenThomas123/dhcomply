@@ -138,6 +138,13 @@ typedef struct dhcpv6_message
     bool valid;
 } dhcpv6_message_t;
 
+typedef struct ia_hint
+{
+    uint128_t *preferred_address;
+    uint128_t *preferred_prefix;
+    uint8_t *preferred_prefix_length;
+} ia_hint_t;
+
 typedef struct config
 {
     uint8_t reconfigure;
@@ -150,6 +157,7 @@ typedef struct config
     uint32_t t2;
     char *ianaIaid;
     char *iapdIaid;
+    ia_hint_t ia_hint;
 } config_t;
 
 typedef struct IANA

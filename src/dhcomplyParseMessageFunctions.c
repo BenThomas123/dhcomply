@@ -619,8 +619,8 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 uint128_to_ipv6_str(address, address_string2, sizeof(address_string2));
 
-				sprintf(cmd2, "sudo ip -6 addr del %s/%d dev %s > /dev/null 2>&1", address_string2, 128, iface);
-				system(cmd2);
+				int command_length = snprintf(cmd2, sizeof(cmd2), "sudo ip -6 addr del %s/%d dev %s > /dev/null 2>&1", address_string2, 128, iface);
+				execute_formatted_command(cmd2, sizeof(cmd2), command_length);
 
                 char cmd[512];
 
@@ -628,8 +628,8 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 uint128_to_ipv6_str(address, address_string, sizeof(address_string));
                 if (request->message_type != RELEASE_MESSAGE_TYPE) {
-                    sprintf(cmd, "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, reply->option_list[option_index].ia_address_t.preferred_lifetime, reply->option_list[option_index].ia_address_t.valid_lifetime);
-                    system(cmd);
+                    int command_length = snprintf(cmd, sizeof(cmd), "sudo ip -6 addr add %s/%d dev %s preferred_lft %lu valid_lft %lu", address_string, 128, iface, reply->option_list[option_index].ia_address_t.preferred_lifetime, reply->option_list[option_index].ia_address_t.valid_lifetime);
+                    execute_formatted_command(cmd, sizeof(cmd), command_length);
                 }
 
                 iana->address = strdup(address_string);
@@ -779,8 +779,8 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 char cmd24[strlen(cumulative_string2) + strlen(iface) + 30];
 
-                sprintf(cmd24, "sudo resolvectl dns %s %s\n", iface, cumulative_string2);
-				system(cmd24);
+                int command_length = snprintf(cmd24, sizeof(cmd24), "sudo resolvectl dns %s %s\n", iface, cumulative_string2);
+                execute_formatted_command(cmd24, sizeof(cmd24), command_length);
 
                 reply->option_list[option_index].dns_recursive_name_server_t.dns_servers = (uint8_t *)calloc(option_length, sizeof(uint8_t));
 
@@ -840,10 +840,10 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 }
 
-                char cmd_23[strlen(domain_search_list) + strlen(iface) + 25];
+                char cmd_23[strlen(domain_search_list) + strlen(iface) + sizeof("sudo resolvectl domain  \n")];
 
-                sprintf(cmd_23, "sudo resolvectl domain %s %s\n", iface, domain_search_list);
-				system(cmd_23);
+                int command_length = snprintf(cmd_23, sizeof(cmd_23), "sudo resolvectl domain %s %s\n", iface, domain_search_list);
+                execute_formatted_command(cmd_23, sizeof(cmd_23), command_length);
 
                 char *DSL_string = (char *)calloc(option_length, sizeof(char));
 
@@ -1095,9 +1095,8 @@ dhcpv6_message_t *parseStatelessReply(uint8_t *packet, dhcpv6_message_t *request
 
                 char cmd24[strlen(cumulative_string2) + strlen(iface) + 30];
 
-                sprintf(cmd24, "sudo resolvectl dns %s %s\n", iface, cumulative_string2);
-
-                system(cmd24);
+                int command_length = snprintf(cmd24, sizeof(cmd24), "sudo resolvectl dns %s %s\n", iface, cumulative_string2);
+                execute_formatted_command(cmd24, sizeof(cmd24), command_length);
 
                 reply->option_list[option_index].dns_recursive_name_server_t.dns_servers = (uint8_t *)calloc(option_length, sizeof(uint8_t));
 
@@ -1157,11 +1156,10 @@ dhcpv6_message_t *parseStatelessReply(uint8_t *packet, dhcpv6_message_t *request
 
                 }
 
-                char cmd_23[strlen(domain_search_list) + strlen(iface) + 25];
+                char cmd_23[strlen(domain_search_list) + strlen(iface) + sizeof("sudo resolvectl domain  \n")];
 
-                sprintf(cmd_23, "sudo resolvectl domain %s %s\n", iface, domain_search_list);
-
-                system(cmd_23);
+                int command_length = snprintf(cmd_23, sizeof(cmd_23), "sudo resolvectl domain %s %s\n", iface, domain_search_list);
+                execute_formatted_command(cmd_23, sizeof(cmd_23), command_length);
 
                 char *DSL_string = (char *)calloc(option_length, sizeof(char));
 

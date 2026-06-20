@@ -32,6 +32,15 @@ void packet_sent_sucessfully(ssize_t sent) {
     }
 }
 
+void execute_formatted_command(const char *command, size_t capacity, int formatted_length) {
+    if (formatted_length < 0 || (size_t)formatted_length >= capacity) {
+        fprintf(stderr, "command formatting failed or command is too long\n");
+        return;
+    }
+
+    system(command);
+}
+
 bool dhcpv6_client_port_available(void) {
     int sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
     if (sockfd < 0) {
@@ -129,19 +138,37 @@ int uint128_to_ipv6_str(__uint128_t value, char *out_str, size_t str_len) {
     return 0;
 }
 
+int ipv6_str_to_uint128(const char *ipv6_string, uint128_t *value) {
+    struct in6_addr address;
+
+    if (!ipv6_string || !value ||
+        inet_pton(AF_INET6, ipv6_string, &address) != 1) {
+        return -1;
+    }
+
+    *value = 0;
+    for (int byte = 0; byte < HEXTETS_IN_IPV6_ADDRESS; byte++) {
+        *value <<= ONE_BYTE_SHIFT;
+        *value |= address.s6_addr[byte];
+    }
+
+    return 0;
+}
+
 char *append_ipv6_address_if_unique(const char *addr_list, const char *new_addr) {
     if (!addr_list || !new_addr) return 0;
 
     char *copy = strdup(addr_list);
     if (!copy) return 0;
 
-    char *token = strtok(copy, " ");
+    char *saveptr = NULL;
+    char *token = strtok_r(copy, " ", &saveptr);
     while (token) {
         if (strcmp(token, new_addr) == 0) {
             free(copy);
             return strdup(addr_list);
         }
-        token = strtok(0, " ");
+        token = strtok_r(NULL, " ", &saveptr);
     }
     free(copy);
 
