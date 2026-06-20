@@ -11,9 +11,9 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
     buffer[offset++] = (message->transaction_id >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
     buffer[offset++] = message->transaction_id & ONE_BYTE_MASK;
 
-    for (size_t i = 0; message->option_count; i++) {
+    for (size_t i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
-        if (opt->option_code == 0 && opt->option_length == 0) break; // end
+        if (opt->option_code == 0 && opt->option_length == 0) continue;
 
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
@@ -56,6 +56,42 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                     buffer[offset_na_3++] = (opt->ia_na_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                 }
                 offset = offset_na_3;
+
+                if (i + 1 < message->option_count &&
+                    message->option_list[i + 1].option_code ==
+                        IA_ADDR_OPTION_CODE) {
+                    dhcpv6_option_t *address = &message->option_list[++i];
+
+                    buffer[offset++] =
+                        (address->option_code >> ONE_BYTE_SHIFT) &
+                        ONE_BYTE_MASK;
+                    buffer[offset++] = address->option_code & ONE_BYTE_MASK;
+                    buffer[offset++] =
+                        (address->option_length >> ONE_BYTE_SHIFT) &
+                        ONE_BYTE_MASK;
+                    buffer[offset++] = address->option_length & ONE_BYTE_MASK;
+
+                    for (int octet = 120; octet >= 0; octet -= 8) {
+                        buffer[offset++] =
+                            (address->ia_address_t.ipv6_address >> octet) &
+                            ONE_BYTE_MASK;
+                    }
+
+                    for (int octet = 3; octet >= 0; octet--) {
+                        buffer[offset++] =
+                            (address->ia_address_t.preferred_lifetime >>
+                             (ONE_BYTE_SHIFT * octet)) &
+                            ONE_BYTE_MASK;
+                    }
+
+                    for (int octet = 3; octet >= 0; octet--) {
+                        buffer[offset++] =
+                            (address->ia_address_t.valid_lifetime >>
+                             (ONE_BYTE_SHIFT * octet)) &
+                            ONE_BYTE_MASK;
+                    }
+                }
+
                 break;
             }
 
@@ -68,6 +104,44 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                     buffer[offset_pd_3++] = (opt->ia_pd_t.t2 >> (ONE_BYTE_SHIFT * octet)) & ONE_BYTE_MASK;
                 }
                 offset = offset_pd_3;
+
+                if (i + 1 < message->option_count &&
+                    message->option_list[i + 1].option_code ==
+                        IAPREFIX_OPTION_CODE) {
+                    dhcpv6_option_t *prefix = &message->option_list[++i];
+
+                    buffer[offset++] =
+                        (prefix->option_code >> ONE_BYTE_SHIFT) &
+                        ONE_BYTE_MASK;
+                    buffer[offset++] = prefix->option_code & ONE_BYTE_MASK;
+                    buffer[offset++] =
+                        (prefix->option_length >> ONE_BYTE_SHIFT) &
+                        ONE_BYTE_MASK;
+                    buffer[offset++] = prefix->option_length & ONE_BYTE_MASK;
+
+                    for (int octet = 3; octet >= 0; octet--) {
+                        buffer[offset++] =
+                            (prefix->ia_prefix_t.preferred_lifetime >>
+                             (ONE_BYTE_SHIFT * octet)) &
+                            ONE_BYTE_MASK;
+                    }
+
+                    for (int octet = 3; octet >= 0; octet--) {
+                        buffer[offset++] =
+                            (prefix->ia_prefix_t.valid_lifetime >>
+                             (ONE_BYTE_SHIFT * octet)) &
+                            ONE_BYTE_MASK;
+                    }
+
+                    buffer[offset++] = prefix->ia_prefix_t.prefix_length;
+
+                    for (int octet = 120; octet >= 0; octet -= 8) {
+                        buffer[offset++] =
+                            (prefix->ia_prefix_t.ipv6_prefix >> octet) &
+                            ONE_BYTE_MASK;
+                    }
+                }
+
                 break;
             }
 
@@ -220,7 +294,6 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 for (int byte = 0; byte < opt->option_length; byte++) {
                     buffer[offset++] = opt->domain_search_list_t.search_list[byte];
                 }
-
                 break;
 
             default:

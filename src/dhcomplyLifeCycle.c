@@ -18,7 +18,8 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
         elapse_time += retrans_time;
 
         uint8_t *advertisement_packet = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
-        int advertisement_check = check_for_message(sockfd, advertisement_packet, ADVERTISE_MESSAGE_TYPE);
+        int advertisement_check =
+            check_for_advertisement(sockfd, advertisement_packet, config_file);
 
         dhcpv6_message_t *advertisement =
             parseAdvertisement(advertisement_packet, firstSol, advertisement_check);

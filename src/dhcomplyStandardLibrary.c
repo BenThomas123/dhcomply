@@ -129,6 +129,23 @@ int uint128_to_ipv6_str(__uint128_t value, char *out_str, size_t str_len) {
     return 0;
 }
 
+int ipv6_str_to_uint128(const char *ipv6_string, uint128_t *value) {
+    struct in6_addr address;
+
+    if (!ipv6_string || !value ||
+        inet_pton(AF_INET6, ipv6_string, &address) != 1) {
+        return -1;
+    }
+
+    *value = 0;
+    for (int byte = 0; byte < HEXTETS_IN_IPV6_ADDRESS; byte++) {
+        *value <<= ONE_BYTE_SHIFT;
+        *value |= address.s6_addr[byte];
+    }
+
+    return 0;
+}
+
 char *append_ipv6_address_if_unique(const char *addr_list, const char *new_addr) {
     if (!addr_list || !new_addr) return 0;
 
