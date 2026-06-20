@@ -11,9 +11,21 @@ config_t *read_config_file(char *iaString) {
     config_file->na = false;
     config_file->pd = false;
 	config_file->t1 = 0;
-	config_file->t2 = 0;
+    config_file->t2 = 0;
     config_file->ianaIaid = NULL;
     config_file->iapdIaid = NULL;
+    config_file->ia_hint.preferred_address = NULL;
+    config_file->ia_hint.preferred_prefix = NULL;
+    config_file->ia_hint.preferred_prefix_length = NULL;
+
+    if (!strcmp(iaString, IA_BOTH_STRING)) {
+        config_file->na = true;
+        config_file->pd = true;
+    } else if (!strcmp(iaString, IAPD_STRING)) {
+        config_file->pd = true;
+    } else if (!strcmp(iaString, IANA_STRING)) {
+        config_file->na = true;
+    }
 
     bool oppositeMaxRTRequest = false;
 
@@ -48,6 +60,73 @@ config_t *read_config_file(char *iaString) {
             config_file->ianaIaid = substring_to_end(line, strlen("IANA IAID: "));
         } else if (!strcmp(substring(line, 0, strlen("IAPD IAID: ")), "IAPD IAID: ")) {
             config_file->iapdIaid = substring_to_end(line, strlen("IAPD IAID: "));
+        } else if (!strncmp(line, PREFERRED_ADDRESS_CONFIG_FILE_LINE,
+                            strlen(PREFERRED_ADDRESS_CONFIG_FILE_LINE)) &&
+                   config_file->na) {
+            const char *value = line + strlen(PREFERRED_ADDRESS_CONFIG_FILE_LINE);
+
+            if (*value == '\0' || config_file->ia_hint.preferred_address) {
+                errorLog("Invalid or duplicate preferred address");
+                exit(-1);
+            }
+
+            config_file->ia_hint.preferred_address = malloc(sizeof(uint128_t));
+            valid_memory_allocation(config_file->ia_hint.preferred_address);
+
+            if (ipv6_str_to_uint128(value,
+                                    config_file->ia_hint.preferred_address) != 0) {
+                errorLog("Invalid preferred IPv6 address");
+                exit(-1);
+            }
+        } else if (!strncmp(line, PREFERRED_PREFIX_LENGTH_CONFIG_FILE_LINE,
+                            strlen(PREFERRED_PREFIX_LENGTH_CONFIG_FILE_LINE)) &&
+                   config_file->pd) {
+            const char *value =
+                line + strlen(PREFERRED_PREFIX_LENGTH_CONFIG_FILE_LINE);
+            char *end = NULL;
+
+            errno = 0;
+            unsigned long prefix_length = strtoul(value, &end, 10);
+
+            if (*value == '\0' || *end != '\0' || errno == ERANGE ||
+                prefix_length > 128 ||
+                config_file->ia_hint.preferred_prefix_length ||
+                config_file->ia_hint.preferred_prefix) {
+                errorLog("Invalid, duplicate, or misplaced preferred prefix length");
+                exit(-1);
+            }
+
+            config_file->ia_hint.preferred_prefix_length = malloc(sizeof(uint8_t));
+            valid_memory_allocation(
+                config_file->ia_hint.preferred_prefix_length);
+            *config_file->ia_hint.preferred_prefix_length =
+                (uint8_t)prefix_length;
+        } else if (!strncmp(line, PREFERRED_PREFIX_CONFIG_FILE_LINE,
+                            strlen(PREFERRED_PREFIX_CONFIG_FILE_LINE)) &&
+                   config_file->pd) {
+            const char *value = line + strlen(PREFERRED_PREFIX_CONFIG_FILE_LINE);
+
+            if (*value == '\0' || config_file->ia_hint.preferred_prefix) {
+                errorLog("Invalid or duplicate preferred prefix");
+                exit(-1);
+            }
+
+            config_file->ia_hint.preferred_prefix = malloc(sizeof(uint128_t));
+            valid_memory_allocation(config_file->ia_hint.preferred_prefix);
+
+            if (ipv6_str_to_uint128(value,
+                                    config_file->ia_hint.preferred_prefix) != 0) {
+                errorLog("Invalid preferred IPv6 prefix");
+                exit(-1);
+            }
+
+            if (!config_file->ia_hint.preferred_prefix_length) {
+                config_file->ia_hint.preferred_prefix_length =
+                    malloc(sizeof(uint8_t));
+                valid_memory_allocation(
+                    config_file->ia_hint.preferred_prefix_length);
+                *config_file->ia_hint.preferred_prefix_length = 64;
+            }
         }
 
         for (int i = 0; i < ORO_ARRAY_LENGTH; i++) {
@@ -59,18 +138,10 @@ config_t *read_config_file(char *iaString) {
 
     fclose(cfp);
 
-    if (!strcmp(iaString, IA_BOTH_STRING)) {
-        config_file->na = true;
-        config_file->pd = true;
-    } else if (!strcmp(iaString, IAPD_STRING)) {
-        config_file->pd = true;
-        config_file->na = false;
-    } else if (!strcmp(iaString, IANA_STRING)) {
-        config_file->na = true;
-        config_file->pd = false;
-    } else if (!strcmp(iaString, STATELESS_STRING)) {
-        config_file->na = false;
-        config_file->pd = false;
+    if (!config_file->ia_hint.preferred_prefix &&
+        config_file->ia_hint.preferred_prefix_length) {
+        errorLog("A preferred prefix length requires a preferred prefix");
+        exit(-1);
     }
 
 	if (!strcmp(iaString, STATELESS_STRING)) {
@@ -129,12 +200,137 @@ static uint8_t get_advertisement_preference(uint8_t *packet, ssize_t packet_leng
     return 0;
 }
 
-static int listen_for_advertisement(int sockfd, uint8_t *packet);
+static uint128_t absolute_uint128_difference(uint128_t first,
+                                             uint128_t second) {
+    return first >= second ? first - second : second - first;
+}
+
+static uint128_t read_uint128(const uint8_t *bytes) {
+    uint128_t value = 0;
+
+    for (int byte = 0; byte < HEXTETS_IN_IPV6_ADDRESS; byte++) {
+        value <<= ONE_BYTE_SHIFT;
+        value |= bytes[byte];
+    }
+
+    return value;
+}
+
+static uint128_t closest_nested_ia_distance(
+    const uint8_t *packet,
+    ssize_t packet_length,
+    uint16_t parent_option_code,
+    uint16_t nested_option_code,
+    size_t nested_value_offset,
+    uint128_t preferred_value,
+    bool *found) {
+    uint128_t closest_distance = ~(uint128_t)0;
+    size_t index = 4;
+
+    *found = false;
+
+    while (index + 4 <= (size_t)packet_length) {
+        uint16_t option_code =
+            ((uint16_t)packet[index] << ONE_BYTE_SHIFT) |
+            packet[index + 1];
+        uint16_t option_length =
+            ((uint16_t)packet[index + 2] << ONE_BYTE_SHIFT) |
+            packet[index + 3];
+        size_t option_end = index + 4 + option_length;
+
+        if (option_end > (size_t)packet_length) {
+            break;
+        }
+
+        if (option_code == parent_option_code && option_length >= 12) {
+            size_t nested_index = index + 16;
+
+            while (nested_index + 4 <= option_end) {
+                uint16_t child_code =
+                    ((uint16_t)packet[nested_index] << ONE_BYTE_SHIFT) |
+                    packet[nested_index + 1];
+                uint16_t child_length =
+                    ((uint16_t)packet[nested_index + 2] << ONE_BYTE_SHIFT) |
+                    packet[nested_index + 3];
+                size_t child_end = nested_index + 4 + child_length;
+
+                if (child_end > option_end) {
+                    break;
+                }
+
+                if (child_code == nested_option_code &&
+                    child_length >= nested_value_offset +
+                                        HEXTETS_IN_IPV6_ADDRESS) {
+                    uint128_t offered_value =
+                        read_uint128(packet + nested_index + 4 +
+                                     nested_value_offset);
+                    uint128_t distance =
+                        absolute_uint128_difference(offered_value,
+                                                    preferred_value);
+
+                    if (!*found || distance < closest_distance) {
+                        closest_distance = distance;
+                        *found = true;
+                    }
+                }
+
+                nested_index = child_end;
+            }
+        }
+
+        index = option_end;
+    }
+
+    return closest_distance;
+}
+
+static uint128_t get_advertisement_hint_distance(
+    const uint8_t *packet,
+    ssize_t packet_length,
+    const config_t *config) {
+    uint128_t total_distance = 0;
+    uint128_t maximum = ~(uint128_t)0;
+
+    if (!config) {
+        return 0;
+    }
+
+    if (config->na && config->ia_hint.preferred_address) {
+        bool found_address = false;
+        uint128_t address_distance = closest_nested_ia_distance(
+            packet, packet_length, IA_NA_OPTION_CODE, IA_ADDR_OPTION_CODE,
+            0, *config->ia_hint.preferred_address, &found_address);
+
+        if (!found_address) {
+            return maximum;
+        }
+
+        total_distance = address_distance;
+    }
+
+    if (config->pd && config->ia_hint.preferred_prefix) {
+        bool found_prefix = false;
+        uint128_t prefix_distance = closest_nested_ia_distance(
+            packet, packet_length, IA_PD_OPTION_CODE, IAPREFIX_OPTION_CODE,
+            9, *config->ia_hint.preferred_prefix, &found_prefix);
+
+        if (!found_prefix || maximum - total_distance < prefix_distance) {
+            return maximum;
+        }
+
+        total_distance += prefix_distance;
+    }
+
+    return total_distance;
+}
+
+static int listen_for_advertisement(int sockfd, uint8_t *packet,
+                                    const config_t *config);
 static int listen_for_reply(int sockfd, uint8_t *packet);
 
 int check_for_message(int sockfd, uint8_t *packet, int type) {
     if (type == ADVERTISE_MESSAGE_TYPE) {
-        return listen_for_advertisement(sockfd, packet);
+        return listen_for_advertisement(sockfd, packet, NULL);
     }
 
     if (type == REPLY_MESSAGE_TYPE) {
@@ -143,6 +339,11 @@ int check_for_message(int sockfd, uint8_t *packet, int type) {
     }
 
     return 0;
+}
+
+int check_for_advertisement(int sockfd, uint8_t *packet,
+                            const config_t *config) {
+    return listen_for_advertisement(sockfd, packet, config);
 }
 
 int check_for_rapid_commit_message(int sockfd, uint8_t *packet, int *type) {
@@ -173,7 +374,8 @@ int check_for_rapid_commit_message(int sockfd, uint8_t *packet, int *type) {
     return len;
 }
 
-static int listen_for_advertisement(int sockfd, uint8_t *packet) {
+static int listen_for_advertisement(int sockfd, uint8_t *packet,
+                                    const config_t *config) {
     uint8_t **advertisements = NULL;
     ssize_t *advertisement_lengths = NULL;
     size_t advertisement_count = 0;
@@ -238,13 +440,18 @@ static int listen_for_advertisement(int sockfd, uint8_t *packet) {
 
     size_t best_index = 0;
     uint8_t best_preference = 0;
+    uint128_t best_distance = ~(uint128_t)0;
 
     for (size_t i = 0; i < advertisement_count; i++) {
         uint8_t preference =
             get_advertisement_preference(advertisements[i], advertisement_lengths[i]);
+        uint128_t distance = get_advertisement_hint_distance(
+            advertisements[i], advertisement_lengths[i], config);
 
-        if (preference > best_preference) {
+        if (i == 0 || preference > best_preference ||
+            (preference == best_preference && distance < best_distance)) {
             best_preference = preference;
+            best_distance = distance;
             best_index = i;
         }
 

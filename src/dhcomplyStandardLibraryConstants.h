@@ -51,6 +51,9 @@
 #define FQDN_CONFIG_FILE_LINE "send dhcp6.fully-qualified-domain-name"
 #define T1_CONFIG_FILE_LINE "send dhcp6.t1 "
 #define T2_CONFIG_FILE_LINE "send dhcp6.t2 "
+#define PREFERRED_ADDRESS_CONFIG_FILE_LINE "send dhcp6.preferred-address "
+#define PREFERRED_PREFIX_CONFIG_FILE_LINE "send dhcp6.preferred-prefix "
+#define PREFERRED_PREFIX_LENGTH_CONFIG_FILE_LINE "send dhcp6.preferred-prefix-length "
 #define OPTION_REQUEST_OPTION_LINE "send dhcp6.option-request-option."
 #if defined(__GNUC__) || defined(__clang__)
 #define DHCOMPLY_UNUSED __attribute__((unused))
