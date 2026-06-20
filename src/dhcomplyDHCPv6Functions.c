@@ -138,10 +138,39 @@ int check_for_message(int sockfd, uint8_t *packet, int type) {
     }
 
     if (type == REPLY_MESSAGE_TYPE) {
+        fprintf(stdout, "here in check reply");
         return listen_for_reply(sockfd, packet);
     }
 
     return 0;
+}
+
+int check_for_rapid_commit_message(int sockfd, uint8_t *packet, int *type) {
+    fd_set read_fds;
+    struct timeval timeout;
+    FD_ZERO(&read_fds);
+    FD_SET(sockfd, &read_fds);
+
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+
+    int ready = select(sockfd + 1, &read_fds, NULL, NULL, &timeout);
+    if (ready <= 0 || !FD_ISSET(sockfd, &read_fds)) {
+        return 0;
+    }
+
+    ssize_t len = recv(sockfd, packet, MAX_PACKET_SIZE, 0);
+    if (len <= 0) {
+        return 0;
+    }
+
+    if (packet[0] != REPLY_MESSAGE_TYPE &&
+        packet[0] != ADVERTISE_MESSAGE_TYPE) {
+        return 0;
+    }
+
+    *type = packet[0];
+    return len;
 }
 
 static int listen_for_advertisement(int sockfd, uint8_t *packet) {
