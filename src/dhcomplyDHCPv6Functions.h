@@ -11,6 +11,7 @@
 // general functions
 config_t *read_config_file(char *);
 int check_for_message(int, uint8_t *, int);
+int check_for_rapid_commit_message(int, uint8_t *, int *);
 bool check_dad_failure(const char *interface);
 uint8_t get_option_count(uint8_t *, unsigned long int, uint8_t *);
 int get_option_index(uint8_t *, unsigned long int, uint8_t);

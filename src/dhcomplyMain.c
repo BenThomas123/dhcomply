@@ -22,7 +22,11 @@ int main(int argc, char *argv[]) {
     valid_socket(sockfd);
     if (confirm_exit_status && strcmp(argv[1], "R")) {
         if (!isStatless) {
-            statefulLifeCycle(config_file, argv[2], sockfd, argv[1]);
+            if (config_file->rapid_commit) {
+                statefulLifeCycleRapidCommit(config_file, argv[2], sockfd, argv[1]);
+            } else {
+                statefulLifeCycle(config_file, argv[2], sockfd, argv[1]);
+            }
         } else {
             statelessLifeCycle(config_file, argv[2], sockfd);
         }
