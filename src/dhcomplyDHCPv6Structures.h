@@ -88,19 +88,16 @@ typedef struct
         {
             uint128_t interface_id_value;
         } interface_id_t;
-        struct reconfigure_message
-        {
+        struct reconfigure_message {
             uint8_t msg_type;
         } reconfigure_message_t;
-        struct ia_prefix
-        {
+        struct ia_prefix {
             uint128_t ipv6_prefix;
             uint64_t preferred_lifetime;
             uint64_t valid_lifetime;
             uint8_t prefix_length;
         } ia_prefix_t;
-        struct ia_pd
-        {
+        struct ia_pd {
             uint32_t iaid;
             uint32_t t1;
             uint32_t t2;
@@ -186,5 +183,10 @@ typedef struct stateless
     char *domain_search_list;
     uint128_t *address_list;
 } stateless_t;
+
+typedef struct reconfigure_arguments {
+    uint8_t *reconfigure_packet;
+    uint8_t sockfd;
+} reconfigure_arguments_t;
 
 #endif //DHCOMPLYDHCPV6STRUCTURES_H

@@ -6,5 +6,6 @@
 dhcpv6_message_t *parseAdvertisement(uint8_t *, dhcpv6_message_t *, int);
 dhcpv6_message_t *parseReply(uint8_t *, dhcpv6_message_t *, const char *, int);
 dhcpv6_message_t *parseStatelessReply(uint8_t *, dhcpv6_message_t *, const char *, int);
+dhcpv6_message_t *parseReconfigure(uint8_t *, dhcpv6_message_t *, const char *, int);
 
 #endif

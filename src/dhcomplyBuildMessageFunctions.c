@@ -221,18 +221,16 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
 
                 break;
 
+            case RECONF_ACCEPT_OPTION_CODE:
+                break;
+
             case SERVER_ID_OPTION_CODE:
-
                 request->option_list[index].server_id_t = advertisement->option_list[i].server_id_t;
-
                 break;
 
             case IA_NA_OPTION_CODE:
-
                 request->option_list[index].ia_na_t = advertisement->option_list[i].ia_na_t;
-
                 request->option_list[index].ia_na_t.t1 = 0;
-
                 request->option_list[index].ia_na_t.t2 = 0;
 
                 break;

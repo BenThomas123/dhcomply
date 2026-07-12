@@ -21,6 +21,7 @@ void delete_lease_file(char *);
 void remove_message_addresses(dhcpv6_message_t *, const char *);
 bool is_matching_reply(uint8_t *, int, dhcpv6_message_t *);
 void remove_message_addresses(dhcpv6_message_t *, const char *);
+int reconfigure_listener(void *);
 uint8_t renewsAllowed(uint32_t);
 uint32_t getIAID(char *);
 void waitToRetransmit(uint64_t);

@@ -10,6 +10,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
     uint8_t retransmissionSolicit = 0;
     uint32_t elapse_time = 0;
 
+    reconfigure_arguments* args = (reconfigure_arguments_t *)malloc(sizeof(reconfigure_arguments_t))
     while (retransmissionSolicit < SOLICIT_RETRANS_COUNT) {
         uint64_t retrans_time =
             lower_solicit[retransmissionSolicit] +
@@ -129,9 +130,6 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
 								}
                             }
 
-                            uint8_t *reply_packet2 =
-                                (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
-
                             if (check_dad_failure(ifname)) {
                                 dhcpv6_message_t *decline = buildDecline(reply_message, config_file);
                                 remove_message_addresses(decline, ifname);
@@ -179,6 +177,27 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                 goto restart;
                             }
 
+                            int auth_option_index = get_option_index(reply_packet, reply_check, AUTH_OPTION_CODE);
+
+                            if (auth_option_index != -1) {
+                                uint8_t auth_protocol =
+                                    reply_message->option_list[auth_option_index].authentication_t.protocol;
+                                uint8_t auth_algorithm =
+                                    reply_message->option_list[auth_option_index].authentication_t.algorithm;
+                                uint8_t auth_rdm =
+                                    reply_message->option_list[auth_option_index].authentication_t.RDM;
+                                uint64_t auth_replay_detection =
+                                    reply_message->option_list[auth_option_index].authentication_t.replay_detection;
+                                uint128_t auth_information =
+                                    reply_message->option_list[auth_option_index].authentication_t.authentication_information;
+                                uint8_t *reconfigure_packet = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
+                                args->reconfigure_packet = reconfigure_packet;
+                                args->sockfd = sockfd;
+                                pthread_t reconfigure_listener_thread;
+                                pthread_create(&reconfigure_listener_thread, NULL, reconfigure_listener, (void *)args);
+                            }
+
+                            uint8_t *reply_packet2 = (uint8_t *)calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
                             while (time(NULL) - startLease < t1) {
                                 if (!leaseFileExists(ifname)) {
                                     return;

@@ -23,6 +23,8 @@
 #include <errno.h>
 #include <limits.h>
 #include <sys/wait.h>
+#include <pthread.h>
+#include <stdatomic.h>
 #include "dhcomplyStandardLibraryConstants.h"
 
 typedef unsigned char uint8_t;

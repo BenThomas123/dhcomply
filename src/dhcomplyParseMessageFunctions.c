@@ -136,6 +136,9 @@ dhcpv6_message_t *parseAdvertisement(uint8_t *packet, dhcpv6_message_t *solicit,
 
                 break;
 
+            case RECONF_ACCEPT_OPTION_CODE:
+                break;
+
             case IA_NA_OPTION_CODE:
 
                 all_valid_options_included_counter += IA_NA_OPTION_CODE;
@@ -442,6 +445,24 @@ dhcpv6_message_t *parseReply(uint8_t *packet, dhcpv6_message_t *request, const c
 
                 break;
             }
+
+            case AUTH_OPTION_CODE:
+                reply->option_list[option_index].protocol = packet[index + 4];
+                reply->option_list[option_index].algorithm = packet[index + 5];
+                reply->option_list[option_index].RDM = packet[index + 6];
+                reply->option_list[option_index].replay_detection = 0;
+
+                for (int octet = 0; octet < 8; octet++) {
+                    reply->option_list[option_index].reply_detection <<= ONE_BYTE_SHIFT;
+                    reply->option_list[option_index].reply_detection |= packet[index + 7 + x];
+                }
+
+                for (int octet = 0; octet < option_length - 11; octet++) {
+                    reply->option_list[option_index].authentication_information <<= ONE_BYTE_SHIFT;
+                    reply->option_list[option_index].authentication_information |= packet[index + 15 + x];
+                }
+
+                break;
 
             case SERVER_ID_OPTION_CODE:
 
@@ -1242,4 +1263,189 @@ dhcpv6_message_t *parseStatelessReply(uint8_t *packet, dhcpv6_message_t *request
 
     return reply;
 
+}
+
+dhcpv6_message_t *parseReconfigure(uint8_t *packet, dhcpv6_message_t *request, const char *iface, int size) {
+
+    bool badReply = false;
+
+    if (valid_transaction_id(packet[1], packet[2], packet[3]) != request->transaction_id) {
+
+        badReply = true;
+
+    }
+
+    dhcpv6_message_t *reconfigure = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
+
+    valid_memory_allocation(reconfigure);
+
+    // we need to declare iaoption_count here to prevent a syntax error
+
+    uint8_t iaoption_count = 0;
+
+    reply->option_count = get_option_count(packet, size, &iaoption_count);
+
+    reconfigure->option_list = (dhcpv6_option_t *)calloc(reconfigure->option_count, sizeof(dhcpv6_option_t));
+
+    valid_memory_allocation(reconfigure->option_list);
+
+    duid_ll_t *server_duid = NULL;
+
+    size_t server_duid_mac_length = 0;
+
+    int index = 4;
+
+    int option_index = 0;
+
+    int options_included_total = 0;
+
+    for (int i = 0; i < reply->option_count - iaoption_count; i++) {
+
+        uint16_t option_code = reconfigure->option_list[option_index].option_code = packet[index] << 8 | packet[index + 1];
+
+        uint16_t option_length = reconfigure->option_list[option_index].option_length = packet[index + 2] << 8 | packet[index + 3];
+
+        reconfigure->option_list[option_index].option_code = option_code;
+
+        reconfigure->option_list[option_index].option_length = option_length;
+
+        switch (option_code) {
+
+            case STATUS_CODE_OPTION_CODE: {
+
+                uint8_t status_code = packet[index + 5];
+
+                if (status_code) {
+                    badReply = true;
+                    if (status_code == NOTONLINK_STATUS_CODE) {
+                        return NULL;
+                    }
+                }
+
+                break;
+            }
+
+			case RECONF_MSG_OPTION_CODE:
+				uint8_t reconfigure_type = packet[index + 4];
+				break;
+
+            case AUTH_OPTION_CODE:
+                reconfigure->option_list[option_index].protocol = packet[index + 4];
+                reconfigure->option_list[option_index].algorithm = packet[index + 5];
+                reconfigure->option_list[option_index].RDM = packet[index + 6];
+                reply->option_list[option_index].replay_detection = 0;
+
+                for (int octet = 0; octet < 8; octet++) {
+                    reply->option_list[option_index].reply_detection <<= ONE_BYTE_SHIFT;
+                    reply->option_list[option_index].reply_detection |= packet[index + 7 + x];
+                }
+
+                for (int octet = 0; octet < option_length - 11; octet++) {
+                    reply->option_list[option_index].authentication_information <<= ONE_BYTE_SHIFT;
+                    reply->option_list[option_index].authentication_information |= packet[index + 15 + x];
+                }
+
+                break;
+
+            case SERVER_ID_OPTION_CODE:
+
+                options_included_total += SERVER_ID_OPTION_CODE;
+
+                reply->option_list[option_index].server_id_t.duid.duid_type =
+                    packet[index + 4] << ONE_BYTE_SHIFT | packet[index + 5];
+
+                reply->option_list[option_index].server_id_t.duid.hw_type =
+                    packet[index + 6] << ONE_BYTE_SHIFT | packet[index + 7];
+
+                reply->option_list[option_index].server_id_t.duid.mac =
+                    (uint8_t *)calloc(option_length - 4, sizeof(uint8_t));
+
+                valid_memory_allocation(reply->option_list[option_index].server_id_t.duid.mac);
+
+                for (int x = 0; x < option_length - 4; x++) {
+
+                    reply->option_list[option_index].server_id_t.duid.mac[x] = packet[index + (x + 8)];
+
+                }
+
+                server_duid = &reply->option_list[option_index].server_id_t.duid;
+
+                server_duid_mac_length = option_length - 4;
+
+                break;
+
+            case CLIENT_ID_OPTION_CODE:
+
+                options_included_total += CLIENT_ID_OPTION_CODE;
+
+                reply->option_list[option_index].client_id_t.duid.duid_type = (packet[index + 4] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+
+                reply->option_list[option_index].client_id_t.duid.duid_type = packet[index + 5] & ONE_BYTE_MASK;
+
+                if (reply->option_list[option_index].client_id_t.duid.duid_type != request->option_list[option_index].client_id_t.duid.duid_type) {
+                    fprintf(stderr, "duid type did not match\n");
+
+                    badReply = true;
+
+                }
+
+                reply->option_list[option_index].client_id_t.duid.hw_type = (packet[index + 6] >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
+
+                reply->option_list[option_index].client_id_t.duid.hw_type = packet[index + 7] & ONE_BYTE_MASK;
+
+                if (reply->option_list[option_index].client_id_t.duid.hw_type != request->option_list[option_index].client_id_t.duid.hw_type) {
+
+                    badReply = true;
+
+                }
+
+                reply->option_list[option_index].client_id_t.duid.mac = (uint8_t *)calloc(option_length, sizeof(uint8_t));
+
+                valid_memory_allocation(reply->option_list[option_index].client_id_t.duid.mac);
+
+                for (int x = 0; x < MAC_ADDRESS_LENGTH; x++) {
+
+                    reply->option_list[option_index].client_id_t.duid.mac[x] = packet[index + (x + 8)];
+
+                    if (reply->option_list[option_index].client_id_t.duid.mac[x] != request->option_list[option_index].client_id_t.duid.mac[x]) {
+
+                        badReply = true;
+
+                    }
+
+                }
+
+                break;
+
+            default:
+
+                break;
+
+        }
+
+        option_index++;
+
+        index += (option_length + 4);
+
+    }
+
+    fprintf(stdout, "\nafter loop badreply: %d\n", badReply);
+    if (
+        (options_included_total != 3 && request->message_type == CONFIRM_MESSAGE_TYPE) &&
+
+        options_included_total != 62 &&
+
+        options_included_total != 11 &&
+
+        options_included_total != 54) {
+
+        fprintf(stderr, "reply failed: missing required options\n");
+        badReply = true;
+
+    }
+
+    fprintf(stdout, "\nafter loop badreply: %d\n", badReply);
+    fprintf(stdout, "\nafter loop badreply: %d\n", reply->valid);
+
+    return reply;
 }

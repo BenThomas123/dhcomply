@@ -4,6 +4,8 @@
 #include "dhcomplyRetransmissionDHCPv6Constants.h"
 #include "dhcomplyDHCPv6Structures.h"
 
+atomic_bool reconfigure_received = false;
+
 // message type constants
 /* =========================================== */
 #define SOLICIT_MESSAGE_TYPE 1

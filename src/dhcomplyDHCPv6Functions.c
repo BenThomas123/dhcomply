@@ -498,6 +498,25 @@ static int listen_for_reply(int sockfd, uint8_t *packet) {
     return 0;
 }
 
+dhcpv6_message_t *reconfigure_listener(void *arg) {
+    reconfigure_arguments_t *args = arg;
+
+    while (!atomic_load(&reconfigure_received)) {
+        int len = check_for_message(
+            args->sockfd,
+            args->reconfigure_packet,
+            RECONFIGURE_MESSAGE_TYPE
+        );
+
+        if (len > 0) {
+            atomic_store(&reconfigure_received, true);
+            return parseReconfigure();
+        }
+    }
+
+    return NULL;
+}
+
 static bool get_check_dad_script_path(char *script_path, size_t script_path_size) {
     char exe_path[PATH_MAX];
     ssize_t exe_path_len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
