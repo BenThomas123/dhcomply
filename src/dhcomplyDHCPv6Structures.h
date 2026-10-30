@@ -62,10 +62,6 @@ typedef struct
             uint64_t replay_detection;
             uint128_t authentication_information;
         } authentication_t;
-        struct unicast
-        {
-            uint128_t address;
-        } unicast_t;
         struct status_code
         {
             uint16_t status_code;
