@@ -1,4 +1,5 @@
 #include "dhcomplyStandardLibrary.h"
+#include <sys/random.h>
 
 void valid_file_pointer(FILE *fp)
 {
@@ -381,12 +382,31 @@ void create_config_file() {
 }
 
 void init_dhcomply() {
-    randomize();
     create_config_file();
 }
 
-void randomize () {
-    srand(time(NULL));
+uint32_t unpredictable_random(void) {
+    uint32_t value;
+    unsigned char *bytes = (unsigned char *)&value;
+    size_t filled = 0;
+
+    while (filled < sizeof(value)) {
+        ssize_t received = getrandom(bytes + filled, sizeof(value) - filled, 0);
+        if (received < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            perror("getrandom failed");
+            exit(EXIT_FAILURE);
+        }
+        if (received == 0) {
+            fprintf(stderr, "getrandom returned no data\n");
+            exit(EXIT_FAILURE);
+        }
+        filled += (size_t)received;
+    }
+
+    return value;
 }
 
 int min (int a, int b) {

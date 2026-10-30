@@ -808,8 +808,12 @@ int sendInformationRequest(dhcpv6_message_t *message, int sockfd, const char *if
 }
 
 int sendConfirm(dhcpv6_message_t *message, int sockfd, const char *iface_name, uint32_t elapsed_time) {
-    if (!message || sockfd < 0) {
-        fprintf(stderr, "cannot send confirm: invalid message or socket\n");
+    if (message == NULL) {
+        fprintf(stderr, "cannot send confirm: message is null\n");
+        return -1;
+    }
+    if (sockfd < 0) {
+        fprintf(stderr, "cannot send confirm: invalid socket\n");
         return -1;
     }
 
@@ -963,8 +967,12 @@ int sendConfirm(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 }
 
 int sendRelease(dhcpv6_message_t *message, int sockfd, const char *iface_name, uint32_t elapsed_time) {
-    if (!message || sockfd < 0) {
-        fprintf(stderr, "cannot send release: invalid message or socket\n");
+    if (message == NULL) {
+        fprintf(stderr, "cannot send release: message is null\n");
+        return -1;
+    }
+    if (sockfd < 0) {
+        fprintf(stderr, "cannot send release: invalid socket\n");
         return -1;
     }
 

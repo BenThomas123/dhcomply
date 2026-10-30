@@ -172,7 +172,7 @@ uint32_t getIAID(char *iaidString) {
     if (iaidString) {
         return strtoul(iaidString, NULL, 16);
     } else {
-        return rand() % FOUR_BYTE_MASK;
+        return unpredictable_random() % FOUR_BYTE_MASK;
     }
 }
 

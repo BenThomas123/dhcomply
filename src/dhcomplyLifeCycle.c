@@ -13,7 +13,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
     while (retransmissionSolicit < SOLICIT_RETRANS_COUNT) {
         uint64_t retrans_time =
             lower_solicit[retransmissionSolicit] +
-            (rand() % (upper_solicit[retransmissionSolicit] - lower_solicit[retransmissionSolicit]));
+            (unpredictable_random() % (upper_solicit[retransmissionSolicit] - lower_solicit[retransmissionSolicit]));
 
         elapse_time += retrans_time;
 
@@ -150,7 +150,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                        declineRetransmission < DECLINE_RETRANS_COUNT) {
                                     uint32_t retrans_time_decline =
                                         decline_lower[declineRetransmission] +
-                                        (rand() %
+                                        (unpredictable_random() %
                                          (decline_upper[declineRetransmission] -
                                           decline_lower[declineRetransmission]));
 
@@ -207,7 +207,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                             while (retransmissionRenew < maxRenewRetransmissions) {
                                 uint32_t retrans_time_renew =
                                     renew_lower[retransmissionRenew] +
-                                    (rand() %
+                                    (unpredictable_random() %
                                      (renew_upper[retransmissionRenew] -
                                       renew_lower[retransmissionRenew]));
 
@@ -268,7 +268,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
                                        !reply_check) {
                                     uint32_t retrans_time_rebind =
                                         rebind_lower[retransmissionRebind] +
-                                        (rand() %
+                                        (unpredictable_random() %
                                          (rebind_upper[retransmissionRebind] -
                                           rebind_lower[retransmissionRebind]));
 
@@ -328,7 +328,7 @@ void statefulLifeCycle(config_t *config_file, char *ifname, int sockfd, char *ia
 
                 uint32_t retrans_time_request =
                     lower_request[retransmissionRequest] +
-                    (rand() %
+                    (unpredictable_random() %
                      (upper_request[retransmissionRequest] -
                       lower_request[retransmissionRequest]));
 
@@ -370,7 +370,7 @@ void statefulLifeCycleRapidCommit(config_t *config_file, char *ifname, int sockf
     while (retransmissionSolicit < SOLICIT_RETRANS_COUNT) {
         uint64_t retrans_time =
             lower_solicit[retransmissionSolicit] +
-            (rand() % (upper_solicit[retransmissionSolicit] - lower_solicit[retransmissionSolicit]));
+            (unpredictable_random() % (upper_solicit[retransmissionSolicit] - lower_solicit[retransmissionSolicit]));
 
         elapse_time += retrans_time;
 
@@ -506,7 +506,7 @@ void statefulLifeCycleRapidCommit(config_t *config_file, char *ifname, int sockf
                                declineRetransmission < DECLINE_RETRANS_COUNT) {
                             uint32_t retrans_time_decline =
                                 decline_lower[declineRetransmission] +
-                                (rand() %
+                                (unpredictable_random() %
                                  (decline_upper[declineRetransmission] -
                                   decline_lower[declineRetransmission]));
 
@@ -564,7 +564,7 @@ void statefulLifeCycleRapidCommit(config_t *config_file, char *ifname, int sockf
                     while (retransmissionRenew < maxRenewRetransmissions) {
                         uint32_t retrans_time_renew =
                             renew_lower[retransmissionRenew] +
-                            (rand() %
+                            (unpredictable_random() %
                              (renew_upper[retransmissionRenew] -
                               renew_lower[retransmissionRenew]));
 
@@ -625,7 +625,7 @@ void statefulLifeCycleRapidCommit(config_t *config_file, char *ifname, int sockf
                                !reply_check) {
                             uint32_t retrans_time_rebind =
                                 rebind_lower[retransmissionRebind] +
-                                (rand() %
+                                (unpredictable_random() %
                                  (rebind_upper[retransmissionRebind] -
                                   rebind_lower[retransmissionRebind]));
 
@@ -798,7 +798,7 @@ void statefulLifeCycleRapidCommit(config_t *config_file, char *ifname, int sockf
                                        declineRetransmission < DECLINE_RETRANS_COUNT) {
                                     uint32_t retrans_time_decline =
                                         decline_lower[declineRetransmission] +
-                                        (rand() %
+                                        (unpredictable_random() %
                                          (decline_upper[declineRetransmission] -
                                           decline_lower[declineRetransmission]));
 
@@ -855,7 +855,7 @@ void statefulLifeCycleRapidCommit(config_t *config_file, char *ifname, int sockf
                             while (retransmissionRenew < maxRenewRetransmissions) {
                                 uint32_t retrans_time_renew =
                                     renew_lower[retransmissionRenew] +
-                                    (rand() %
+                                    (unpredictable_random() %
                                      (renew_upper[retransmissionRenew] -
                                       renew_lower[retransmissionRenew]));
 
@@ -916,7 +916,7 @@ void statefulLifeCycleRapidCommit(config_t *config_file, char *ifname, int sockf
                                        !reply_check) {
                                     uint32_t retrans_time_rebind =
                                         rebind_lower[retransmissionRebind] +
-                                        (rand() %
+                                        (unpredictable_random() %
                                          (rebind_upper[retransmissionRebind] -
                                           rebind_lower[retransmissionRebind]));
 
@@ -976,7 +976,7 @@ void statefulLifeCycleRapidCommit(config_t *config_file, char *ifname, int sockf
 
                 uint32_t retrans_time_request =
                     lower_request[retransmissionRequest] +
-                    (rand() %
+                    (unpredictable_random() %
                      (upper_request[retransmissionRequest] -
                       lower_request[retransmissionRequest]));
 
@@ -1073,7 +1073,7 @@ int confirmLifeCycle(config_t *config_file, char *ifname) {
                                declineRetransmission < DECLINE_RETRANS_COUNT) {
                             uint32_t retrans_time_decline =
                                 decline_lower[declineRetransmission] +
-                                (rand() %
+                                (unpredictable_random() %
                                  (decline_upper[declineRetransmission] -
                                   decline_lower[declineRetransmission]));
 
@@ -1121,7 +1121,7 @@ int confirmLifeCycle(config_t *config_file, char *ifname) {
                     while (retransmissionRenew < maxRenewRetransmissions) {
                         uint32_t retrans_time_renew =
                             renew_lower[retransmissionRenew] +
-                            (rand() %
+                            (unpredictable_random() %
                              (renew_upper[retransmissionRenew] -
                               renew_lower[retransmissionRenew]));
 
@@ -1182,7 +1182,7 @@ int confirmLifeCycle(config_t *config_file, char *ifname) {
                                !reply_check) {
                             uint32_t retrans_time_rebind =
                                 rebind_lower[retransmissionRebind] +
-                                (rand() %
+                                (unpredictable_random() %
                                  (rebind_upper[retransmissionRebind] -
                                   rebind_lower[retransmissionRebind]));
 
@@ -1227,7 +1227,7 @@ int confirmLifeCycle(config_t *config_file, char *ifname) {
             }
         } else {
            uint64_t retrans_time = confirm_lower[retransmissionConfirm] +
-                    (rand() % (confirm_upper[retransmissionConfirm] - confirm_lower[retransmissionConfirm]));
+                    (unpredictable_random() % (confirm_upper[retransmissionConfirm] - confirm_lower[retransmissionConfirm]));
            waitToRetransmit(retrans_time);
            if (elapse_time < 655350) {
                 sendConfirm(firstConfirm, sockfd, ifname, elapse_time / 10);
@@ -1282,7 +1282,7 @@ int releaseLifeCycle(config_t *config_file, char *ifname) {
             }
         } else {
            uint64_t retrans_time = release_lower[retransmission_release] +
-                    (rand() % (release_upper[retransmission_release] - release_lower[retransmission_release]));
+                    (unpredictable_random() % (release_upper[retransmission_release] - release_lower[retransmission_release]));
            waitToRetransmit(retrans_time);
            if (elapse_time < 655350) {
                 sendRelease(firstRelease, sockfd, ifname, elapse_time / 10);
@@ -1342,7 +1342,7 @@ void statelessLifeCycle(config_t *config_file, char *ifname, int sockfd) {
         while (retransmissionInfoReq < INFO_REQUEST_RETRANS_COUNT) {
             uint64_t retrans_time =
                 lower_solicit[retransmissionInfoReq] +
-                (rand() %
+                (unpredictable_random() %
                  (upper_solicit[retransmissionInfoReq] -
                   lower_solicit[retransmissionInfoReq]));
 

@@ -26,7 +26,7 @@ dhcpv6_message_t *buildSolicit(config_t *config, const char *ifname) {
 
     msg->message_type = SOLICIT_MESSAGE_TYPE;
 
-    msg->transaction_id = rand() & THREE_BYTE_MASK;
+    msg->transaction_id = unpredictable_random() & THREE_BYTE_MASK;
 
     msg->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
 
@@ -193,7 +193,7 @@ dhcpv6_message_t * buildRequest(dhcpv6_message_t *advertisement, config_t *confi
 
     request->message_type = REQUEST_MESSAGE_TYPE;
 
-    request->transaction_id = rand() & THREE_BYTE_MASK;
+    request->transaction_id = unpredictable_random() & THREE_BYTE_MASK;
 
     request->option_list = calloc(option_count + 2, sizeof(dhcpv6_option_t));
 
@@ -331,7 +331,7 @@ dhcpv6_message_t * buildRenew(dhcpv6_message_t *reply, dhcpv6_message_t *request
     dhcpv6_message_t *renew = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
     valid_memory_allocation(renew);
     renew->message_type = RENEW_MESSAGE_TYPE;
-    renew->transaction_id = rand() & THREE_BYTE_MASK;
+    renew->transaction_id = unpredictable_random() & THREE_BYTE_MASK;
 
     renew->option_list = calloc(option_count + 4, sizeof(dhcpv6_option_t));
 
@@ -462,7 +462,7 @@ dhcpv6_message_t * buildRebind(dhcpv6_message_t *reply, config_t *config) {
     dhcpv6_message_t *rebind = (dhcpv6_message_t *)malloc(sizeof(dhcpv6_message_t));
     valid_memory_allocation(rebind);
     rebind->message_type = REBIND_MESSAGE_TYPE;
-    rebind->transaction_id = rand() & THREE_BYTE_MASK;
+    rebind->transaction_id = unpredictable_random() & THREE_BYTE_MASK;
     rebind->option_list = calloc(option_count + 3, sizeof(dhcpv6_option_t));
     valid_memory_allocation(rebind->option_list);
     size_t index = 0;
@@ -569,7 +569,7 @@ dhcpv6_message_t * buildDecline(dhcpv6_message_t *reply, config_t *config) {
 
     decline->message_type = DECLINE_MESSAGE_TYPE;
 
-    decline->transaction_id = rand() & THREE_BYTE_MASK;
+    decline->transaction_id = unpredictable_random() & THREE_BYTE_MASK;
 
     decline->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
 
@@ -671,7 +671,7 @@ dhcpv6_message_t *buildInformationRequest(config_t *config, const char *ifname) 
 
     msg->message_type = INFORMATION_REQUEST_MESSAGE_TYPE;
 
-    msg->transaction_id = rand() & THREE_BYTE_MASK;
+    msg->transaction_id = unpredictable_random() & THREE_BYTE_MASK;
 
     msg->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
 
@@ -775,7 +775,7 @@ dhcpv6_message_t *buildConfirm(config_t *config, const char *ifname, uint32_t *t
     dhcpv6_message_t *msg = malloc(sizeof(dhcpv6_message_t));
     valid_memory_allocation(msg);
     msg->message_type = CONFIRM_MESSAGE_TYPE;
-    msg->transaction_id = rand() & THREE_BYTE_MASK;
+    msg->transaction_id = unpredictable_random() & THREE_BYTE_MASK;
     msg->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
     valid_memory_allocation(msg->option_list);
     size_t index = 0;
@@ -974,7 +974,7 @@ dhcpv6_message_t *buildRelease(config_t *config, const char *ifname) {
     dhcpv6_message_t *msg = malloc(sizeof(dhcpv6_message_t));
     valid_memory_allocation(msg);
     msg->message_type = RELEASE_MESSAGE_TYPE;
-    msg->transaction_id = rand() & THREE_BYTE_MASK;
+    msg->transaction_id = unpredictable_random() & THREE_BYTE_MASK;
     msg->option_list = calloc(option_count, sizeof(dhcpv6_option_t));
     valid_memory_allocation(msg->option_list);
     size_t index = 0;

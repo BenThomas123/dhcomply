@@ -40,7 +40,7 @@ void execute_formatted_command(const char *command, size_t capacity, int formatt
 int get_mac_address(const char *, uint8_t[6]);
 bool dhcpv6_client_port_available();
 
-void randomize();
+uint32_t unpredictable_random(void);
 void create_config_file();
 void init_dhcomply();
 
