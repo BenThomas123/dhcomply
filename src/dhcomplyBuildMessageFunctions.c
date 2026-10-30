@@ -483,18 +483,26 @@ dhcpv6_message_t * buildRebind(dhcpv6_message_t *reply, config_t *config) {
 
             case IA_NA_OPTION_CODE:
                 rebind->option_list[index].ia_na_t = reply->option_list[i].ia_na_t;
+                rebind->option_list[index].ia_na_t.t1 = 0;
+                rebind->option_list[index].ia_na_t.t2 = 0;
                 break;
 
             case IA_ADDR_OPTION_CODE:
                 rebind->option_list[index].ia_address_t = reply->option_list[i].ia_address_t;
+                rebind->option_list[index].ia_address_t.preferred_lifetime = 0;
+                rebind->option_list[index].ia_address_t.valid_lifetime = 0;
                 break;
 
             case IA_PD_OPTION_CODE:
                 rebind->option_list[index].ia_pd_t = reply->option_list[i].ia_pd_t;
+                rebind->option_list[index].ia_pd_t.t1 = 0;
+                rebind->option_list[index].ia_pd_t.t2 = 0;
                 break;
 
             case IAPREFIX_OPTION_CODE:
                 rebind->option_list[index].ia_prefix_t = reply->option_list[i].ia_prefix_t;
+                rebind->option_list[index].ia_prefix_t.preferred_lifetime = 0;
+                rebind->option_list[index].ia_prefix_t.valid_lifetime = 0;
                 break;
 
             case DNS_SERVERS_OPTION_CODE:
