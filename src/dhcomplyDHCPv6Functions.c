@@ -40,7 +40,9 @@ config_t *read_config_file(char *iaString) {
     while (fgets(line, sizeof(line), cfp)) {
         trim(line);
 
-        if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_RENEW, line)) {
+        if (strncmp(trim(line), COMMENT_CONFIG_FILE_LINE, strlen(COMMENT_CONFIG_FILE_LINE)) == 0) {
+            continue;
+        } else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_RENEW, line)) {
             config_file->reconfigure = 5;
         } else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_REBIND, line)) {
             config_file->reconfigure = 6;

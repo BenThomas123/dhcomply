@@ -56,6 +56,8 @@
 #define PREFERRED_PREFIX_CONFIG_FILE_LINE "send dhcp6.preferred-prefix "
 #define PREFERRED_PREFIX_LENGTH_CONFIG_FILE_LINE "send dhcp6.preferred-prefix-length "
 #define OPTION_REQUEST_OPTION_LINE "send dhcp6.option-request-option."
+#define COMMENT_CONFIG_FILE_LINE "//"
+
 #if defined(__GNUC__) || defined(__clang__)
 #define DHCOMPLY_UNUSED __attribute__((unused))
 #else
