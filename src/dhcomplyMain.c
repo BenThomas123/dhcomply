@@ -6,6 +6,11 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
+    if (!strcmp(argv[1], DHCOMPLY_CURRENT_VERSION)) {
+        fprintf(stdout, "%s\n", argv[1]);
+        exit(-1);
+    }
+
     config_t *config_file = read_config_file(argv[1]);
     bool isStatless = config_file->na == false && config_file->pd == false;
 
