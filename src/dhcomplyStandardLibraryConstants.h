@@ -1,6 +1,7 @@
 #ifndef DHCOMPLYSTANDARDLIBRARYCONSTANTS_H
 #define DHCOMPLYSTANDARDLIBRARYCONSTANTS_H
 
+#define DHCOMPLY_CURRENT_VERSION "dhcomply v1.0.0"
 /*
     Miscellaneous constants
 */
