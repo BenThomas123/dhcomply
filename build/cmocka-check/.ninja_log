@@ -1,0 +1,4 @@
+# ninja log v7
+48	139	8169468083613147	test/DHCPv6/DHCPv6-Unit-Tests/CMakeFiles/dhcpv6_unit_tests.dir/src/runner.c.obj	72041d8876bfd5fb
+38	209	8169468083507736	CMakeFiles/dhcomply_core.dir/lib/cJSON.c.obj	34ef64ae377d50d3
+42	829	8169468083547730	_deps/cmocka-build/src/CMakeFiles/cmocka.dir/cmocka.c.obj	983c94aa84bfb8a0

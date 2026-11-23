@@ -1,5 +1,16 @@
 #include "dhcomplyDHCPv6Functions.h"
 
+static const char *hint_value(const char *line, const char *option) {
+    size_t name_length = strlen(option) - 1;
+    if (strncmp(line, option, name_length) != 0) {
+        return NULL;
+    }
+    if (line[name_length] == ' ') {
+        return line + name_length + 1;
+    }
+    return line[name_length] == '\0' ? line + name_length : NULL;
+}
+
 config_t *read_config_file(char *iaString) {
     config_t *config_file = malloc(sizeof(config_t));
     valid_memory_allocation(config_file);
@@ -32,15 +43,16 @@ config_t *read_config_file(char *iaString) {
     FILE *cfp = fopen(CONFIG_FILE_PATH, "r");
     valid_file_pointer(cfp);
 
-    char line[MAX_LINE_LEN];
+    char line_buffer[MAX_LINE_LEN];
 
     config_file->oro_list = (uint8_t *)calloc(ORO_MAX_REQUESTED_OPTIONS, sizeof(uint8_t));
     valid_memory_allocation(config_file->oro_list);
 
-    while (fgets(line, sizeof(line), cfp)) {
-        trim(line);
+    while (fgets(line_buffer, sizeof(line_buffer), cfp)) {
+        char *line = trim(line_buffer);
+        const char *value;
 
-        if (strncmp(trim(line), COMMENT_CONFIG_FILE_LINE, strlen(COMMENT_CONFIG_FILE_LINE)) == 0) {
+        if (strncmp(line, COMMENT_CONFIG_FILE_LINE, strlen(COMMENT_CONFIG_FILE_LINE)) == 0) {
             continue;
         } else if (!strcmp(RECONFIGURE_CONFIG_FILE_LINE_RENEW, line)) {
             config_file->reconfigure = 5;
@@ -62,11 +74,8 @@ config_t *read_config_file(char *iaString) {
             config_file->ianaIaid = substring_to_end(line, strlen("IANA IAID: "));
         } else if (!strcmp(substring(line, 0, strlen("IAPD IAID: ")), "IAPD IAID: ")) {
             config_file->iapdIaid = substring_to_end(line, strlen("IAPD IAID: "));
-        } else if (!strncmp(line, PREFERRED_ADDRESS_CONFIG_FILE_LINE,
-                            strlen(PREFERRED_ADDRESS_CONFIG_FILE_LINE)) &&
-                   config_file->na) {
-            const char *value = line + strlen(PREFERRED_ADDRESS_CONFIG_FILE_LINE);
-
+        } else if (config_file->na &&
+                   (value = hint_value(line, PREFERRED_ADDRESS_CONFIG_FILE_LINE))) {
             if (*value == '\0' || config_file->ia_hint.preferred_address) {
                 errorLog("Invalid or duplicate preferred address");
                 exit(-1);
@@ -80,11 +89,8 @@ config_t *read_config_file(char *iaString) {
                 errorLog("Invalid preferred IPv6 address");
                 exit(-1);
             }
-        } else if (!strncmp(line, PREFERRED_PREFIX_LENGTH_CONFIG_FILE_LINE,
-                            strlen(PREFERRED_PREFIX_LENGTH_CONFIG_FILE_LINE)) &&
-                   config_file->pd) {
-            const char *value =
-                line + strlen(PREFERRED_PREFIX_LENGTH_CONFIG_FILE_LINE);
+        } else if (config_file->pd &&
+                   (value = hint_value(line, PREFERRED_PREFIX_LENGTH_CONFIG_FILE_LINE))) {
             char *end = NULL;
 
             errno = 0;
@@ -92,8 +98,7 @@ config_t *read_config_file(char *iaString) {
 
             if (*value == '\0' || *end != '\0' || errno == ERANGE ||
                 prefix_length > 128 ||
-                config_file->ia_hint.preferred_prefix_length ||
-                config_file->ia_hint.preferred_prefix) {
+                config_file->ia_hint.preferred_prefix_length) {
                 errorLog("Invalid, duplicate, or misplaced preferred prefix length");
                 exit(-1);
             }
@@ -103,11 +108,8 @@ config_t *read_config_file(char *iaString) {
                 config_file->ia_hint.preferred_prefix_length);
             *config_file->ia_hint.preferred_prefix_length =
                 (uint8_t)prefix_length;
-        } else if (!strncmp(line, PREFERRED_PREFIX_CONFIG_FILE_LINE,
-                            strlen(PREFERRED_PREFIX_CONFIG_FILE_LINE)) &&
-                   config_file->pd) {
-            const char *value = line + strlen(PREFERRED_PREFIX_CONFIG_FILE_LINE);
-
+        } else if (config_file->pd &&
+                   (value = hint_value(line, PREFERRED_PREFIX_CONFIG_FILE_LINE))) {
             if (*value == '\0' || config_file->ia_hint.preferred_prefix) {
                 errorLog("Invalid or duplicate preferred prefix");
                 exit(-1);
@@ -173,9 +175,8 @@ config_t *read_config_file(char *iaString) {
 uint32_t getIAID(char *iaidString) {
     if (iaidString) {
         return strtoul(iaidString, NULL, 16);
-    } else {
-        return unpredictable_random() % FOUR_BYTE_MASK;
     }
+    return unpredictable_random() % FOUR_BYTE_MASK;
 }
 
 static uint8_t get_advertisement_preference(uint8_t *packet, ssize_t packet_length) {
@@ -290,6 +291,7 @@ static uint128_t get_advertisement_hint_distance(
     const uint8_t *packet,
     ssize_t packet_length,
     const config_t *config) {
+
     uint128_t total_distance = 0;
     uint128_t maximum = ~(uint128_t)0;
 
@@ -326,54 +328,44 @@ static uint128_t get_advertisement_hint_distance(
     return total_distance;
 }
 
-static int listen_for_advertisement(int sockfd, uint8_t *packet,
-                                    const config_t *config);
-static int listen_for_reply(int sockfd, uint8_t *packet);
+int bind_dhcpv6_client_socket(int sockfd) {
+    struct sockaddr_in6 src = {0};
+    src.sin6_family = AF_INET6;
+    src.sin6_port = htons(DHCP_CLIENT_PORT);
+    src.sin6_addr = in6addr_any;
 
-int check_for_message(int sockfd, uint8_t *packet, int type) {
-    if (type == ADVERTISE_MESSAGE_TYPE) {
-        return listen_for_advertisement(sockfd, packet, NULL);
-    }
-
-    if (type == REPLY_MESSAGE_TYPE) {
-        fprintf(stdout, "here in check reply");
-        return listen_for_reply(sockfd, packet);
-    }
-
-    return 0;
+    return bind(sockfd, (struct sockaddr *)&src, sizeof(src));
 }
 
-int check_for_advertisement(int sockfd, uint8_t *packet,
-                            const config_t *config) {
-    return listen_for_advertisement(sockfd, packet, config);
+int open_lease_handoff_socket(void) {
+    int sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+    if (sockfd < 0) {
+        perror("create DHCPv6 client socket");
+        return -1;
+    }
+
+    // The previous client releases port 546 after seeing its lease file removed.
+    while (bind_dhcpv6_client_socket(sockfd) < 0) {
+        if (errno != EADDRINUSE) {
+            perror("bind DHCPv6 client socket");
+            close(sockfd);
+            return -1;
+        }
+        usleep(100000);
+    }
+    return sockfd;
 }
 
-int check_for_rapid_commit_message(int sockfd, uint8_t *packet, int *type) {
-    fd_set read_fds;
-    struct timeval timeout;
-    FD_ZERO(&read_fds);
-    FD_SET(sockfd, &read_fds);
+void send_dhcpv6_multicast_packet(int sockfd, const uint8_t *packet, size_t length,
+                                  const char *iface_name) {
+    struct sockaddr_in6 dest = {0};
+    dest.sin6_family = AF_INET6;
+    dest.sin6_port = htons(DHCP_SERVER_PORT);
+    inet_pton(AF_INET6, ALL_DHCP_RELAY_AGENTS_AND_SERVERS, &dest.sin6_addr);
+    dest.sin6_scope_id = if_nametoindex(iface_name);
 
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
-
-    int ready = select(sockfd + 1, &read_fds, NULL, NULL, &timeout);
-    if (ready <= 0 || !FD_ISSET(sockfd, &read_fds)) {
-        return 0;
-    }
-
-    ssize_t len = recv(sockfd, packet, MAX_PACKET_SIZE, 0);
-    if (len <= 0) {
-        return 0;
-    }
-
-    if (packet[0] != REPLY_MESSAGE_TYPE &&
-        packet[0] != ADVERTISE_MESSAGE_TYPE) {
-        return 0;
-    }
-
-    *type = packet[0];
-    return len;
+    ssize_t sent = sendto(sockfd, packet, length, 0, (struct sockaddr *)&dest, sizeof(dest));
+    packet_sent_sucessfully(sent);
 }
 
 static int listen_for_advertisement(int sockfd, uint8_t *packet,
@@ -392,7 +384,7 @@ static int listen_for_advertisement(int sockfd, uint8_t *packet,
         timeout.tv_usec = 0;
 
         int ready = select(sockfd + 1, &read_fds, NULL, NULL, &timeout);
-        if (ready <= 0 || !FD_ISSET(sockfd, &read_fds)) {
+        if (ready <= 0) {
             break;
         }
 
@@ -484,7 +476,7 @@ static int listen_for_reply(int sockfd, uint8_t *packet) {
     timeout.tv_usec = 0;
 
     int ready = select(sockfd + 1, &read_fds, NULL, NULL, &timeout);
-    if (ready > 0 && FD_ISSET(sockfd, &read_fds)) {
+    if (ready > 0) {
         uint8_t buffer[MAX_PACKET_SIZE];
         ssize_t len = recv(sockfd, buffer, sizeof(buffer), 0);
         if (len <= 0) {
@@ -498,6 +490,52 @@ static int listen_for_reply(int sockfd, uint8_t *packet) {
     }
 
     return 0;
+}
+
+int check_for_message(int sockfd, uint8_t *packet, int type) {
+    if (type == ADVERTISE_MESSAGE_TYPE) {
+        return listen_for_advertisement(sockfd, packet, NULL);
+    }
+
+    if (type == REPLY_MESSAGE_TYPE) {
+        fprintf(stdout, "here in check reply");
+        return listen_for_reply(sockfd, packet);
+    }
+
+    return 0;
+}
+
+int check_for_advertisement(int sockfd, uint8_t *packet,
+                            const config_t *config) {
+    return listen_for_advertisement(sockfd, packet, config);
+}
+
+int check_for_rapid_commit_message(int sockfd, uint8_t *packet, int *type) {
+    fd_set read_fds;
+    struct timeval timeout;
+    FD_ZERO(&read_fds);
+    FD_SET(sockfd, &read_fds);
+
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+
+    int ready = select(sockfd + 1, &read_fds, NULL, NULL, &timeout);
+    if (ready <= 0) {
+        return 0;
+    }
+
+    ssize_t len = recv(sockfd, packet, MAX_PACKET_SIZE, 0);
+    if (len <= 0) {
+        return 0;
+    }
+
+    if (packet[0] != REPLY_MESSAGE_TYPE &&
+        packet[0] != ADVERTISE_MESSAGE_TYPE) {
+        return 0;
+    }
+
+    *type = packet[0];
+    return len;
 }
 
 static bool get_check_dad_script_path(char *script_path, size_t script_path_size) {
@@ -608,7 +646,7 @@ int get_option_index(uint8_t *packet, unsigned long int size, uint8_t desired_op
         if (option_code == desired_option_code) return option_index;
         uint16_t option_length = packet[index + 2] << ONE_BYTE_SHIFT;
         option_length |= packet[index + 3];
-        index += (option_length + 4);
+        index += option_length + 4;
         option_index++;
         if (option_code == IA_NA_OPTION_CODE || option_code == IA_PD_OPTION_CODE) {
             option_index++;
@@ -619,7 +657,7 @@ int get_option_index(uint8_t *packet, unsigned long int size, uint8_t desired_op
 }
 
 static char *format_duid(const duid_ll_t *duid, size_t mac_length) {
-    if (!duid || !duid->mac) {
+    if (!duid->mac) {
         return NULL;
     }
 
@@ -641,7 +679,7 @@ static char *format_duid(const duid_ll_t *duid, size_t mac_length) {
 
     size_t offset = (size_t)written;
     for (size_t i = 0; i < mac_length; i++) {
-        written = snprintf(duid_string + offset, ((mac_length + 4) * 3) + 1 - offset,
+        written = snprintf(duid_string + offset, (mac_length + 4) * 3 + 1 - offset,
                            ":%02X", duid->mac[i]);
         if (written < 0) {
             free(duid_string);
@@ -802,7 +840,7 @@ uint8_t renewsAllowed(uint32_t t2minust1) {
 
 void waitToRetransmit(uint64_t retrans_time) {
 	if (retrans_time >= 1000) {
-	    usleep((retrans_time * MICROSECONDS_IN_MILLISECONDS) - MICROSECONDS_IN_SECONDS);
+	    usleep(retrans_time * MICROSECONDS_IN_MILLISECONDS - MICROSECONDS_IN_SECONDS);
 	}
 }
 

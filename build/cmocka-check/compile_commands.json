@@ -1,0 +1,8 @@
+[
+{
+  "directory": "C:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check",
+  "command": "C:\\PROGRA~1\\JETBRA~1\\CLION2~1.1\\bin\\mingw\\bin\\gcc.exe -DCMOCKA_EXPORTS -D_GNU_SOURCE -D_XOPEN_SOURCE=700 -IC:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check/_deps/cmocka-build/src -IC:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check/_deps/cmocka-src/src -IC:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check/_deps/cmocka-build -IC:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check/_deps/cmocka-src/include -std=gnu99 -DHAVE_CONFIG_H -o _deps\\cmocka-build\\src\\CMakeFiles\\cmocka.dir\\cmocka.c.obj -c C:\\Users\\bent2\\usefulStuff\\dhcomply\\build\\cmocka-check\\_deps\\cmocka-src\\src\\cmocka.c",
+  "file": "C:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check/_deps/cmocka-src/src/cmocka.c",
+  "output": "C:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check/_deps/cmocka-build/src/CMakeFiles/cmocka.dir/cmocka.c.obj"
+}
+]

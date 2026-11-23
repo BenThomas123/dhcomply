@@ -1,0 +1,12 @@
+# This is a generated file and its contents are an internal implementation detail.
+# The download step will be re-executed if anything in this file changes.
+# No other meaning or use of this file is supported.
+
+method=url
+command=C:/Program Files/JetBrains/CLion 2026.2.1/bin/cmake/win/x64/bin/cmake.exe;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;C:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check/_deps/cmocka-subbuild/cmocka-populate-prefix/src/cmocka-populate-stamp/download-cmocka-populate.cmake;COMMAND;C:/Program Files/JetBrains/CLion 2026.2.1/bin/cmake/win/x64/bin/cmake.exe;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;C:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check/_deps/cmocka-subbuild/cmocka-populate-prefix/src/cmocka-populate-stamp/verify-cmocka-populate.cmake;COMMAND;C:/Program Files/JetBrains/CLion 2026.2.1/bin/cmake/win/x64/bin/cmake.exe;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;C:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check/_deps/cmocka-subbuild/cmocka-populate-prefix/src/cmocka-populate-stamp/extract-cmocka-populate.cmake
+source_dir=C:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check/_deps/cmocka-src
+work_dir=C:/Users/bent2/usefulStuff/dhcomply/build/cmocka-check/_deps
+url(s)=https://cmocka.org/files/2.0/cmocka-2.0.2.tar.xz
+hash=SHA256=39f92f366bdf3f1a02af4da75b4a5c52df6c9f7e736c7d65de13283f9f0ef416
+      no_extract=
+

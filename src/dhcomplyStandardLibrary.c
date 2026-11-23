@@ -42,23 +42,6 @@ void execute_formatted_command(const char *command, size_t capacity, int formatt
     system(command);
 }
 
-bool dhcpv6_client_port_available(void) {
-    int sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
-    if (sockfd < 0) {
-        return false;
-    }
-
-    struct sockaddr_in6 src = {0};
-    src.sin6_family = AF_INET6;
-    src.sin6_port = htons(546);
-    src.sin6_addr = in6addr_any;
-
-    bool available = bind(sockfd, (struct sockaddr *)&src, sizeof(src)) == 0;
-
-    close(sockfd);
-    return available;
-}
-
 // string library add ons
 char *trim(char *str)
 {
@@ -88,7 +71,7 @@ char *substring(const char *str, size_t start, size_t len)
     if (start >= str_len)
         return "";
 
-    if (start + len > str_len)
+    if (len > str_len - start)
     {
         len = str_len - start;
     }
@@ -114,15 +97,6 @@ char *substring_to_end(const char *s, size_t start) {
 
     strcpy(result, s + start);
     return result;
-}
-
-void to_uppercase(char *str)
-{
-    while (*str)
-    {
-        *str = toupper((unsigned char)*str);
-        str++;
-    }
 }
 
 int uint128_to_ipv6_str(__uint128_t value, char *out_str, size_t str_len) {
@@ -173,14 +147,17 @@ char *append_ipv6_address_if_unique(const char *addr_list, const char *new_addr)
     }
     free(copy);
 
-    char *result = malloc(1024);
-    if (!result) return 0;
+    size_t list_length = strlen(addr_list);
+    size_t address_offset = list_length + (list_length != 0);
+    size_t address_size = strlen(new_addr) + 1;
+    char *result = malloc(address_offset + address_size);
+    if (!result) return NULL;
 
-    if (strlen(addr_list) > 0) {
-        snprintf(result, 1024, "%s %s", addr_list, new_addr);
-    } else {
-        snprintf(result, 1024, "%s", new_addr);
+    if (list_length != 0) {
+        memcpy(result, addr_list, list_length);
+        result[list_length] = ' ';
     }
+    memcpy(result + address_offset, new_addr, address_size);
 
     return result;
 }
@@ -244,7 +221,10 @@ static int copy_file(const char *source_filename, const char *destination_filena
     }
 
     fclose(source);
-    fclose(destination);
+    if (fclose(destination) != 0) {
+        perror("fclose lease copy");
+        return -1;
+    }
     return 0;
 }
 
@@ -332,12 +312,12 @@ cJSON *readLease(const char *iface_name) {
     size_t bytes_read = fread(json_string, sizeof(char), (size_t)file_size, f);
     fclose(f);
 
-    if (bytes_read != (size_t)file_size) {
+    if (bytes_read != (size_t)file_size || memchr(json_string, '\0', bytes_read) != NULL) {
         free(json_string);
         return NULL;
     }
 
-    cJSON *lease_json = cJSON_Parse(json_string);
+    cJSON *lease_json = cJSON_ParseWithOpts(json_string, NULL, true);
     free(json_string);
 
     if (!lease_json) {
@@ -373,7 +353,7 @@ int get_mac_address(const char *iface_name, uint8_t mac[6]) {
     return 0;
 }
 
-void create_config_file() {
+static void create_config_file(void) {
     FILE *fp = fopen("/etc/dhcomply.conf", "wx");
     if (fp == NULL) {
         return;
@@ -381,7 +361,7 @@ void create_config_file() {
     fclose(fp);
 }
 
-void init_dhcomply() {
+void init_dhcomply(void) {
     create_config_file();
 }
 
@@ -415,22 +395,6 @@ int min (int a, int b) {
     }
 
     return b;
-}
-
-int max (int a, int b) {
-    if (a > b) {
-        return a;
-    }
-
-    return b;
-}
-
-void UserLog (const char *message) {
-    fprintf(stdout, "%s\n", message);
-}
-
-void debugLog (const char *message) {
-    fprintf(stderr, "%s\n", message);
 }
 
 void errorLog (const char *message) {

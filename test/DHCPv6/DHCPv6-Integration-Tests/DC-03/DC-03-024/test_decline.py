@@ -1,0 +1,6 @@
+from timing_checks import count_limit, unchanged_leases
+
+
+def check(trace):
+    count_limit(trace, "decline")
+    unchanged_leases(trace)

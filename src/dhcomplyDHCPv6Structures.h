@@ -10,118 +10,163 @@ typedef struct duid_ll
     uint8_t *mac;
 } duid_ll_t;
 
+// Declare the tagged option types outside the anonymous union for C++ compatibility.
+struct client_id
+{
+    duid_ll_t duid;
+};
+
+struct server_id
+{
+    duid_ll_t duid;
+};
+
+struct ia_address
+{
+    uint128_t ipv6_address;
+    uint64_t preferred_lifetime;
+    uint64_t valid_lifetime;
+    union dhcpv6_option *ia_address_options;
+};
+
+struct ia_na
+{
+    uint32_t iaid;
+    uint32_t t1;
+    uint32_t t2;
+    struct ia_address *addresses;
+};
+
+struct option_request
+{
+    uint8_t *option_request;
+};
+
+struct preference
+{
+    uint8_t preference_value;
+};
+
+struct elapsed_time
+{
+    uint16_t elapsed_time_value;
+};
+
+struct relay
+{
+    uint32_t relay_value;
+};
+
+struct authentication
+{
+    uint8_t protocol;
+    uint8_t algorithm;
+    uint8_t RDM;
+    uint64_t replay_detection;
+    uint128_t authentication_information;
+};
+
+struct status_code
+{
+    uint16_t status_code;
+};
+
+struct user_class_option
+{
+    uint128_t user_class_data;
+};
+
+struct vendor_class_option
+{
+    uint32_t enterprise_number;
+    uint128_t vendor_class_data;
+};
+
+struct vendor_specific_option
+{
+    uint32_t enterprise_number;
+    uint128_t vendor_option_data;
+};
+
+struct interface_id
+{
+    uint128_t interface_id_value;
+};
+
+struct reconfigure_message
+{
+    uint8_t msg_type;
+};
+
+struct ia_prefix
+{
+    uint128_t ipv6_prefix;
+    uint64_t preferred_lifetime;
+    uint64_t valid_lifetime;
+    uint8_t prefix_length;
+};
+
+struct ia_pd
+{
+    uint32_t iaid;
+    uint32_t t1;
+    uint32_t t2;
+    struct ia_prefix_t *prefixes;
+};
+
+struct information_refresh_time
+{
+    uint32_t information_refresh_time;
+};
+
+struct dns_recursive_name_server
+{
+    uint8_t *dns_servers;
+};
+
+struct domain_search_list
+{
+    char *search_list;
+};
+
+struct SOL_MAX_RT
+{
+    uint32_t SOL_MAX_RT_value;
+};
+
+struct INF_MAX_RT
+{
+    uint32_t INF_MAX_RT_value;
+};
+
 typedef struct
 {
     uint16_t option_code;
     uint16_t option_length;
     union
     {
-        struct client_id
-        {
-            duid_ll_t duid;
-        } client_id_t;
-        struct server_id
-        {
-            duid_ll_t duid;
-        } server_id_t;
-        struct ia_address
-        {
-            uint128_t ipv6_address;
-            uint64_t preferred_lifetime;
-            uint64_t valid_lifetime;
-            union dhcpv6_option *ia_address_options;
-        } ia_address_t;
-        struct ia_na
-        {
-            uint32_t iaid;
-            uint32_t t1;
-            uint32_t t2;
-            struct ia_address *addresses;
-        } ia_na_t;
-        struct option_request
-        {
-            uint8_t *option_request;
-        } option_request_t;
-        struct preference
-        {
-            uint8_t preference_value;
-        } preference_t;
-        struct elapsed_time
-        {
-            uint16_t elapsed_time_value;
-        } elapsed_time_t;
-        struct relay
-        {
-            uint32_t relay_value;
-        } relay_t;
-        struct authentication
-        {
-            uint8_t protocol;
-            uint8_t algorithm;
-            uint8_t RDM;
-            uint64_t replay_detection;
-            uint128_t authentication_information;
-        } authentication_t;
-        struct status_code
-        {
-            uint16_t status_code;
-        } status_code_t;
-        struct user_class_option
-        {
-            uint128_t user_class_data;
-        } user_class_option_t;
-        struct vendor_class_option
-        {
-            uint32_t enterprise_number;
-            uint128_t vendor_class_data;
-        } vendor_class_option_t;
-        struct vendor_specific_option
-        {
-            uint32_t enterprise_number;
-            uint128_t vendor_option_data;
-        } vendor_specific_option_t;
-        struct interface_id
-        {
-            uint128_t interface_id_value;
-        } interface_id_t;
-        struct reconfigure_message
-        {
-            uint8_t msg_type;
-        } reconfigure_message_t;
-        struct ia_prefix
-        {
-            uint128_t ipv6_prefix;
-            uint64_t preferred_lifetime;
-            uint64_t valid_lifetime;
-            uint8_t prefix_length;
-        } ia_prefix_t;
-        struct ia_pd
-        {
-            uint32_t iaid;
-            uint32_t t1;
-            uint32_t t2;
-            struct ia_prefix_t *prefixes;
-        } ia_pd_t;
-        struct information_refresh_time
-        {
-            uint32_t information_refresh_time;
-        } information_refresh_time_t;
-        struct dns_recursive_name_server
-        {
-            uint8_t *dns_servers;
-        } dns_recursive_name_server_t;
-        struct domain_search_list
-        {
-            char *search_list;
-        } domain_search_list_t;
-        struct SOL_MAX_RT
-        {
-            uint32_t SOL_MAX_RT_value;
-        } SOL_MAX_RT_t;
-        struct INF_MAX_RT
-        {
-            uint32_t INF_MAX_RT_value;
-        } INF_MAX_RT_t;
+        struct client_id client_id_t;
+        struct server_id server_id_t;
+        struct ia_address ia_address_t;
+        struct ia_na ia_na_t;
+        struct option_request option_request_t;
+        struct preference preference_t;
+        struct elapsed_time elapsed_time_t;
+        struct relay relay_t;
+        struct authentication authentication_t;
+        struct status_code status_code_t;
+        struct user_class_option user_class_option_t;
+        struct vendor_class_option vendor_class_option_t;
+        struct vendor_specific_option vendor_specific_option_t;
+        struct interface_id interface_id_t;
+        struct reconfigure_message reconfigure_message_t;
+        struct ia_prefix ia_prefix_t;
+        struct ia_pd ia_pd_t;
+        struct information_refresh_time information_refresh_time_t;
+        struct dns_recursive_name_server dns_recursive_name_server_t;
+        struct domain_search_list domain_search_list_t;
+        struct SOL_MAX_RT SOL_MAX_RT_t;
+        struct INF_MAX_RT INF_MAX_RT_t;
     };
 } dhcpv6_option_t;
 

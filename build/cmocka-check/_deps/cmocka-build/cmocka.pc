@@ -1,0 +1,11 @@
+# cmocka pkg-config source file
+
+prefix=C:/Program Files (x86)/dhcomply
+libdir=C:/Program Files (x86)/dhcomply/lib
+includedir=C:/Program Files (x86)/dhcomply/include
+
+Name: cmocka
+Description: The cmocka unit testing library
+Version: 2.0.2
+Libs: -L${libdir} -lcmocka
+Cflags: -I${includedir}

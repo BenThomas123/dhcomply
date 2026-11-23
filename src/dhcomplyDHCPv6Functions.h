@@ -10,6 +10,10 @@
 
 // general functions
 config_t *read_config_file(char *);
+int bind_dhcpv6_client_socket(int sockfd);
+int open_lease_handoff_socket(void);
+void send_dhcpv6_multicast_packet(int sockfd, const uint8_t *packet, size_t length,
+                                  const char *iface_name);
 int check_for_message(int, uint8_t *, int);
 int check_for_advertisement(int, uint8_t *, const config_t *);
 int check_for_rapid_commit_message(int, uint8_t *, int *);

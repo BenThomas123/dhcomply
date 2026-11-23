@@ -768,8 +768,7 @@ dhcpv6_message_t *buildConfirm(config_t *config, const char *ifname, uint32_t *t
         return NULL;
     }
 
-    cJSON *lease = NULL;
-    cJSON_ArrayForEach(lease, leases) {
+    for (cJSON *lease = leases->child; lease; lease = lease->next) {
         cJSON *type = cJSON_GetObjectItemCaseSensitive(lease, "type");
         if (cJSON_IsString(type) &&
             (!strcmp(type->valuestring, "IANA") || !strcmp(type->valuestring, "IAPD"))) {
@@ -834,7 +833,7 @@ dhcpv6_message_t *buildConfirm(config_t *config, const char *ifname, uint32_t *t
     *t2 = 0;
     *valid_lifetime = 0;
 
-    cJSON_ArrayForEach(lease, leases) {
+    for (cJSON *lease = leases->child; lease; lease = lease->next) {
         cJSON *type = cJSON_GetObjectItemCaseSensitive(lease, "type");
         cJSON *iaid = cJSON_GetObjectItemCaseSensitive(lease, "iaid");
         cJSON *lease_t1 = cJSON_GetObjectItemCaseSensitive(lease, "t1");
@@ -949,7 +948,13 @@ dhcpv6_message_t *buildConfirm(config_t *config, const char *ifname, uint32_t *t
     return msg;
 }
 
+static uint8_t hex_digit_value(unsigned char digit) {
+    return digit <= '9' ? digit - '0' : tolower(digit) - 'a' + 10;
+}
+
 dhcpv6_message_t *buildRelease(config_t *config, const char *ifname) {
+
+    (void)config;
 
     cJSON *lease_json = readLease(ifname);
     if (!lease_json) {
@@ -967,17 +972,13 @@ dhcpv6_message_t *buildRelease(config_t *config, const char *ifname) {
         return NULL;
     }
 
-    cJSON *lease = NULL;
-    cJSON_ArrayForEach(lease, leases) {
+    for (cJSON *lease = leases->child; lease; lease = lease->next) {
         cJSON *type = cJSON_GetObjectItemCaseSensitive(lease, "type");
         if (cJSON_IsString(type) &&
             (!strcmp(type->valuestring, "IANA") || !strcmp(type->valuestring, "IAPD"))) {
             option_count += 2;
         }
     }
-
-    if (config->oro_list_length > 0) option_count++;
-    if (config->reconfigure) option_count++;
 
     dhcpv6_message_t *msg = malloc(sizeof(dhcpv6_message_t));
     valid_memory_allocation(msg);
@@ -1007,17 +1008,17 @@ dhcpv6_message_t *buildRelease(config_t *config, const char *ifname) {
     index++;
 
     if (cJSON_IsObject(server_duid)) {
-        cJSON *duid = cJSON_GetObjectItemCaseSensitive(server_duid, "duid");
-        if (!cJSON_IsString(duid) || !duid->valuestring) {
+        const char *duid = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(server_duid, "duid"));
+        if (!duid) {
             cJSON_Delete(lease_json);
             return NULL;
         }
 
-        size_t max_bytes = (strlen(duid->valuestring) / 2) + 1;
+        size_t max_bytes = (strlen(duid) / 2) + 1;
         uint8_t *bytes = calloc(max_bytes, sizeof(uint8_t));
         valid_memory_allocation(bytes);
 
-        const char *cursor = duid->valuestring;
+        const char *cursor = duid;
         size_t byte_count = 0;
         while (*cursor) {
             if (!isxdigit((unsigned char)cursor[0]) || !isxdigit((unsigned char)cursor[1])) {
@@ -1026,17 +1027,9 @@ dhcpv6_message_t *buildRelease(config_t *config, const char *ifname) {
                 return NULL;
             }
 
-            char octet_string[3] = { cursor[0], cursor[1], '\0' };
-            char *end = NULL;
-            errno = 0;
-            unsigned long octet = strtoul(octet_string, &end, 16);
-            if (errno != 0 || end == octet_string || *end != '\0' || octet > ONE_BYTE_MASK) {
-                free(bytes);
-                cJSON_Delete(lease_json);
-                return NULL;
-            }
-
-            bytes[byte_count++] = (uint8_t)octet;
+            uint8_t high = hex_digit_value((unsigned char)cursor[0]);
+            uint8_t low = hex_digit_value((unsigned char)cursor[1]);
+            bytes[byte_count++] = (high << 4) | low;
             cursor += 2;
 
             if (*cursor == ':') {
@@ -1078,7 +1071,7 @@ dhcpv6_message_t *buildRelease(config_t *config, const char *ifname) {
     msg->option_list[index].elapsed_time_t.elapsed_time_value = 0;
     index++;
 
-    cJSON_ArrayForEach(lease, leases) {
+    for (cJSON *lease = leases->child; lease; lease = lease->next) {
         cJSON *type = cJSON_GetObjectItemCaseSensitive(lease, "type");
         cJSON *iaid = cJSON_GetObjectItemCaseSensitive(lease, "iaid");
         cJSON *lease_t1 = cJSON_GetObjectItemCaseSensitive(lease, "t1");

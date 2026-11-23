@@ -6,3 +6,7 @@ c*.o
 .vscode/
 .venv/
 vmPasswords
+/bin/dhcomplyStandardLibraryTest
+/build/unit-tests/
+/build/coverage/
+/cmake-build-*/

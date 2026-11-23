@@ -13,7 +13,7 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
     for (size_t i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
-        if (opt->option_code == 0 && opt->option_length == 0) continue;
+        if (opt->option_code == 0) continue;
 
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
@@ -150,20 +150,7 @@ int sendSolicit(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
         }
     }
 
-    struct sockaddr_in6 src = {0};
-    src.sin6_family = AF_INET6;
-    src.sin6_port = htons(DHCP_CLIENT_PORT);
-    src.sin6_addr = in6addr_any;
-    bind(sockfd, (struct sockaddr*)&src, sizeof(src));
-
-    struct sockaddr_in6 dest = {0};
-    dest.sin6_family = AF_INET6;
-    dest.sin6_port = htons(DHCP_SERVER_PORT);
-    inet_pton(AF_INET6, ALL_DHCP_RELAY_AGENTS_AND_SERVERS, &dest.sin6_addr);
-    dest.sin6_scope_id = if_nametoindex(iface_name);
-
-    ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-	packet_sent_sucessfully(sent);
+    send_dhcpv6_multicast_packet(sockfd, buffer, offset, iface_name);
 
     return 0;
 }
@@ -182,8 +169,9 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
     for (int i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
-        if (opt->option_code == 0 && opt->option_length == 0) continue;
+        if (opt->option_code == 0) continue;
 
+        uint16_t option_start = offset;
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
 
@@ -297,18 +285,14 @@ int sendRequest(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
                 break;
 
             default:
+                if (opt->option_length != 0) {
+                    offset = option_start;
+                }
                 break;
         }
     }
 
-    struct sockaddr_in6 dest = {0};
-    dest.sin6_family = AF_INET6;
-    dest.sin6_port = htons(DHCP_SERVER_PORT);
-    inet_pton(AF_INET6, ALL_DHCP_RELAY_AGENTS_AND_SERVERS, &dest.sin6_addr);
-    dest.sin6_scope_id = if_nametoindex(iface_name);
-
-    ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    packet_sent_sucessfully(sent);
+    send_dhcpv6_multicast_packet(sockfd, buffer, offset, iface_name);
 
     return 0;
 }
@@ -327,7 +311,7 @@ int sendRenew(dhcpv6_message_t *message, int sockfd, const char *iface_name, uin
 
     for (int i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
-        if (opt->option_code == 0 && opt->option_length == 0) continue;
+        if (opt->option_code == 0) continue;
 
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
@@ -449,14 +433,7 @@ int sendRenew(dhcpv6_message_t *message, int sockfd, const char *iface_name, uin
         }
     }
 
-    struct sockaddr_in6 dest = {0};
-    dest.sin6_family = AF_INET6;
-    dest.sin6_port = htons(DHCP_SERVER_PORT);
-    inet_pton(AF_INET6, ALL_DHCP_RELAY_AGENTS_AND_SERVERS, &dest.sin6_addr);
-    dest.sin6_scope_id = if_nametoindex(iface_name);
-
-    ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    packet_sent_sucessfully(sent);
+    send_dhcpv6_multicast_packet(sockfd, buffer, offset, iface_name);
 
     return 0;
 }
@@ -475,7 +452,7 @@ int sendRebind(dhcpv6_message_t *message, int sockfd, const char *iface_name, ui
 
     for (int i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
-        if ((opt->option_code == 0 && opt->option_length == 0) || opt->option_code == 2) continue;
+        if (opt->option_code == 0 || opt->option_code == SERVER_ID_OPTION_CODE) continue;
 
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
@@ -583,14 +560,7 @@ int sendRebind(dhcpv6_message_t *message, int sockfd, const char *iface_name, ui
         }
     }
 
-    struct sockaddr_in6 dest = {0};
-    dest.sin6_family = AF_INET6;
-    dest.sin6_port = htons(DHCP_SERVER_PORT);
-    inet_pton(AF_INET6, ALL_DHCP_RELAY_AGENTS_AND_SERVERS, &dest.sin6_addr);
-    dest.sin6_scope_id = if_nametoindex(iface_name);
-
-    ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    packet_sent_sucessfully(sent);
+    send_dhcpv6_multicast_packet(sockfd, buffer, offset, iface_name);
 
     return 0;
 }
@@ -609,7 +579,7 @@ int sendDecline(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
     for (int i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
-        if (opt->option_code == 0 && opt->option_length == 0) continue;
+        if (opt->option_code == 0) continue;
 
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
@@ -724,14 +694,7 @@ int sendDecline(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
         }
     }
 
-    struct sockaddr_in6 dest = {0};
-    dest.sin6_family = AF_INET6;
-    dest.sin6_port = htons(DHCP_SERVER_PORT);
-    inet_pton(AF_INET6, ALL_DHCP_RELAY_AGENTS_AND_SERVERS, &dest.sin6_addr);
-    dest.sin6_scope_id = if_nametoindex(iface_name);
-
-    ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    packet_sent_sucessfully(sent);
+    send_dhcpv6_multicast_packet(sockfd, buffer, offset, iface_name);
 
     return 0;
 }
@@ -748,9 +711,9 @@ int sendInformationRequest(dhcpv6_message_t *message, int sockfd, const char *if
     buffer[offset++] = (message->transaction_id >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
     buffer[offset++] = message->transaction_id & ONE_BYTE_MASK;
 
-    for (size_t i = 0; message->option_count; i++) {
+    for (size_t i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
-        if (opt->option_code == 0 && opt->option_length == 0) break; // end
+        if (opt->option_code == 0) break; // end
 
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] =  opt->option_code & ONE_BYTE_MASK;
@@ -789,20 +752,7 @@ int sendInformationRequest(dhcpv6_message_t *message, int sockfd, const char *if
         }
     }
 
-    struct sockaddr_in6 src = {0};
-    src.sin6_family = AF_INET6;
-    src.sin6_port = htons(DHCP_CLIENT_PORT);
-    src.sin6_addr = in6addr_any;
-    bind(sockfd, (struct sockaddr*)&src, sizeof(src));
-
-    struct sockaddr_in6 dest = {0};
-    dest.sin6_family = AF_INET6;
-    dest.sin6_port = htons(DHCP_SERVER_PORT);
-    inet_pton(AF_INET6, ALL_DHCP_RELAY_AGENTS_AND_SERVERS, &dest.sin6_addr);
-    dest.sin6_scope_id = if_nametoindex(iface_name);
-
-    ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    packet_sent_sucessfully(sent);
+    send_dhcpv6_multicast_packet(sockfd, buffer, offset, iface_name);
 
     return 0;
 }
@@ -827,7 +777,7 @@ int sendConfirm(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
     for (int i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
-        if (opt->option_code == 0 && opt->option_length == 0) continue;
+        if (opt->option_code == 0) continue;
 
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] = opt->option_code & ONE_BYTE_MASK;
@@ -945,23 +895,7 @@ int sendConfirm(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
         }
     }
 
-    struct sockaddr_in6 src = {0};
-    src.sin6_family = AF_INET6;
-    src.sin6_port = htons(DHCP_CLIENT_PORT);
-    src.sin6_addr = in6addr_any;
-
-    if (bind(sockfd, (struct sockaddr*)&src, sizeof(src)) < 0) {
-        fprintf(stderr, "the bind failed\n");
-    }
-
-    struct sockaddr_in6 dest = {0};
-    dest.sin6_family = AF_INET6;
-    dest.sin6_port = htons(DHCP_SERVER_PORT);
-    inet_pton(AF_INET6, ALL_DHCP_RELAY_AGENTS_AND_SERVERS, &dest.sin6_addr);
-    dest.sin6_scope_id = if_nametoindex(iface_name);
-
-    ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    packet_sent_sucessfully(sent);
+    send_dhcpv6_multicast_packet(sockfd, buffer, offset, iface_name);
 
     return 0;
 }
@@ -986,7 +920,7 @@ int sendRelease(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
 
     for (int i = 0; i < message->option_count; i++) {
         dhcpv6_option_t *opt = &message->option_list[i];
-        if (opt->option_code == 0 && opt->option_length == 0) continue;
+        if (opt->option_code == 0) continue;
 
         buffer[offset++] = (opt->option_code >> ONE_BYTE_SHIFT) & ONE_BYTE_MASK;
         buffer[offset++] = opt->option_code & ONE_BYTE_MASK;
@@ -1085,23 +1019,7 @@ int sendRelease(dhcpv6_message_t *message, int sockfd, const char *iface_name, u
         }
     }
 
-    struct sockaddr_in6 src = {0};
-    src.sin6_family = AF_INET6;
-    src.sin6_port = htons(DHCP_CLIENT_PORT);
-    src.sin6_addr = in6addr_any;
-
-    if (bind(sockfd, (struct sockaddr*)&src, sizeof(src)) < 0) {
-        fprintf(stderr, "the bind failed\n");
-    }
-
-    struct sockaddr_in6 dest = {0};
-    dest.sin6_family = AF_INET6;
-    dest.sin6_port = htons(DHCP_SERVER_PORT);
-    inet_pton(AF_INET6, ALL_DHCP_RELAY_AGENTS_AND_SERVERS, &dest.sin6_addr);
-    dest.sin6_scope_id = if_nametoindex(iface_name);
-
-    ssize_t sent = sendto(sockfd, buffer, offset, 0, (struct sockaddr *)&dest, sizeof(dest));
-    packet_sent_sucessfully(sent);
+    send_dhcpv6_multicast_packet(sockfd, buffer, offset, iface_name);
 
     return 0;
 }
